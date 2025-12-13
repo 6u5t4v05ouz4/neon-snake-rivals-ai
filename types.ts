@@ -35,6 +35,7 @@ export interface GameState {
   status: GameStatus;
   tick: number;
   winner: string | null;
+  nextMatchCountdown: number | null; // Seconds until restart
 }
 
 export interface CommentaryMessage {

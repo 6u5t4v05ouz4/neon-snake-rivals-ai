@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSnakeGame } from './hooks/useSnakeGame';
 import SnakeBoard from './components/SnakeBoard';
 import { Play, Pause, RotateCcw, Zap } from 'lucide-react';
-import { INITIAL_SPEED, MIN_SPEED, START_GAME_SPEED, SPEED_DECREMENT } from './constants';
+import { MIN_SPEED } from './constants';
 import { GameStatus } from './types';
 
 const App: React.FC = () => {
@@ -60,32 +60,11 @@ const App: React.FC = () => {
         <div className="w-full flex flex-col gap-4 items-center">
           <SnakeBoard gameState={gameState} />
 
-          {/* Controls */}
+          {/* Status Indicator (Auto-Pilot) */}
           <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 flex flex-wrap items-center justify-center gap-6">
-            <div className="flex gap-2">
-              <button
-                onClick={togglePlay}
-                className={`flex items-center gap-2 px-6 py-2 rounded font-bold transition-all ${gameState.status === GameStatus.PLAYING
-                  ? 'bg-amber-500/20 text-amber-500 hover:bg-amber-500/30 border border-amber-500/50'
-                  : 'bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/50'
-                  }`}
-              >
-                {gameState.status === GameStatus.PLAYING ? <Pause size={20} /> : <Play size={20} />}
-                {gameState.status === GameStatus.PLAYING ? 'PAUSE' : 'START SIMULATION'}
-              </button>
-
-              <button
-                onClick={resetGame}
-                className="flex items-center gap-2 px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 transition-colors text-slate-200"
-              >
-                <RotateCcw size={18} />
-                RESET
-              </button>
-            </div>
-
             <div className="flex items-center gap-4 bg-black/40 px-4 py-2 rounded-full border border-slate-800">
               <Zap size={16} className="text-yellow-400" />
-              <span className="text-xs text-slate-400 uppercase tracking-widest pl-2">Individual snake speeds active</span>
+              <span className="text-xs text-slate-400 uppercase tracking-widest pl-2">AUTONOMOUS MODE • FIRST TO 50 Wins</span>
             </div>
           </div>
         </div>

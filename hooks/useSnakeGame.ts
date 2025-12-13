@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { GameState, Snake, GameStatus, Direction, Point } from '../types';
-import { BOARD_WIDTH, BOARD_HEIGHT, SNAKE_1_START, SNAKE_2_START, MIN_SPEED, START_GAME_SPEED, SPEED_DECREMENT } from '../constants';
+import { BOARD_WIDTH, BOARD_HEIGHT, SNAKE_1_START, SNAKE_2_START, MIN_SPEED, START_GAME_SPEED, SPEED_DECREMENT, WIN_SCORE, RESTART_DELAY } from '../constants';
 import { getBestMove } from '../services/aiLogic';
 
 const getRandomFreePoint = (occupiedBodies: Point[][]): Point => {
@@ -48,15 +48,17 @@ const createInitialState = (): GameState => {
     ],
     // Randomize food position instead of center to prevent simultaneous arrival
     food: getRandomFreePoint([s1Body, s2Body]),
-    status: GameStatus.IDLE,
+    status: GameStatus.PLAYING, // Auto-start
     tick: 0,
     winner: null,
+    nextMatchCountdown: null,
   };
 };
 
 export const useSnakeGame = () => {
   const [gameState, setGameState] = useState<GameState>(createInitialState());
   const gameLoopRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const spawnFood = (currentSnakes: Snake[]): Point => {
     let newFood: Point;
@@ -116,6 +118,13 @@ export const useSnakeGame = () => {
           // Check Food
           if (newHead.x === nextFood.x && newHead.y === nextFood.y) {
             snake.score += 1;
+            // Check Win Condition by Score
+            if (snake.score >= WIN_SCORE) {
+              // We will handle winner determination in step 3
+              // But we can mark other as eliminated to force end? 
+              // Or just let it flow. The winner check below looks at survivors.
+              // Let's force proper status update there.
+            }
             nextFood = spawnFood(nextSnakes);
             // Don't pop tail (grow)
           } else {
@@ -157,7 +166,12 @@ export const useSnakeGame = () => {
 
       // 3. Determine Winner
       const aliveSnakes = nextSnakes.filter(s => !s.eliminated);
-      if (aliveSnakes.length === 0) {
+      const scoreWinner = nextSnakes.find(s => s.score >= WIN_SCORE);
+
+      if (scoreWinner) {
+        newStatus = GameStatus.GAME_OVER;
+        winner = scoreWinner.name;
+      } else if (aliveSnakes.length === 0) {
         newStatus = GameStatus.GAME_OVER;
         const s1 = nextSnakes[0];
         const s2 = nextSnakes[1];
@@ -177,10 +191,37 @@ export const useSnakeGame = () => {
         food: nextFood,
         status: newStatus,
         winner,
-        tick: prev.tick + 1
+        tick: prev.tick + 1,
+        nextMatchCountdown: newStatus === GameStatus.GAME_OVER && prev.status !== GameStatus.GAME_OVER ? RESTART_DELAY : prev.nextMatchCountdown
       };
     });
   }, []);
+
+  // Countdown Effect
+  useEffect(() => {
+    if (gameState.status === GameStatus.GAME_OVER) {
+      // Only start if not running
+      if (!countdownRef.current) {
+        countdownRef.current = setInterval(() => {
+          setGameState(prev => {
+            if (prev.nextMatchCountdown !== null && prev.nextMatchCountdown > 0) {
+              return { ...prev, nextMatchCountdown: prev.nextMatchCountdown - 1 };
+            } else {
+              // Time to restart
+              if (countdownRef.current) clearInterval(countdownRef.current);
+              countdownRef.current = null;
+              return createInitialState(); // Reset and Auto-start
+            }
+          });
+        }, 1000);
+      }
+    } else {
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
+    }
+  }, [gameState.status]);
 
   useEffect(() => {
     if (gameState.status === GameStatus.PLAYING) {
@@ -190,12 +231,17 @@ export const useSnakeGame = () => {
     }
     return () => {
       if (gameLoopRef.current) clearInterval(gameLoopRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
     };
   }, [gameState.status, tick]);
 
   const startGame = () => setGameState(prev => ({ ...prev, status: GameStatus.PLAYING }));
   const pauseGame = () => setGameState(prev => ({ ...prev, status: GameStatus.PAUSED }));
-  const resetGame = () => setGameState(createInitialState());
+  const resetGame = () => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    countdownRef.current = null;
+    setGameState(createInitialState());
+  };
 
   return { gameState, startGame, pauseGame, resetGame };
 };

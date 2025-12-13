@@ -5,6 +5,9 @@ export const START_GAME_SPEED = 200; // Start slow
 export const SPEED_DECREMENT = 5; // -5ms per point
 export const MIN_SPEED = 30;
 
+export const WIN_SCORE = 50;
+export const RESTART_DELAY = 60; // seconds
+
 export const SNAKE_1_START = { x: 5, y: 5 };
 export const SNAKE_2_START = { x: 19, y: 19 };
 

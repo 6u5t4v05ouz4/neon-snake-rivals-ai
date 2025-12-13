@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { GameState } from '../types';
+import { GameState, GameStatus } from '../types';
 import { BOARD_WIDTH, BOARD_HEIGHT, THEME } from '../constants';
 
 interface Props {
@@ -66,15 +66,27 @@ const SnakeBoard: React.FC<Props> = ({ gameState }) => {
       ))}
 
       {gameState.status === 'GAME_OVER' && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div className="text-center animate-bounce">
-            <h2 className="text-4xl md:text-6xl font-bold text-white mb-2 brand-font tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500">
-              GAME OVER
-            </h2>
-            <p className="text-xl text-gray-300 font-mono">
-              {gameState.winner ? `${gameState.winner} WINS!` : "DRAW"}
-            </p>
+        <div className="absolute inset-0 z-20 bg-black/80 flex flex-col items-center justify-center p-8 backdrop-blur-sm">
+          <h2 className="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-fuchsia-500 mb-4 animate-pulse">
+            GAME OVER
+          </h2>
+          <div className="text-2xl text-white mb-8 font-mono tracking-wider">
+            WINNER: <span className="text-yellow-400 font-bold">{gameState.winner || 'DRAW'}</span>
           </div>
+
+          {/* Countdown Display */}
+          {gameState.nextMatchCountdown !== null && (
+            <div className="text-slate-400 font-mono text-sm mt-4">
+              NEXT MATCH IN <span className="text-white font-bold text-xl">{gameState.nextMatchCountdown}</span> SECONDS
+            </div>
+          )}
+
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition hidden"
+          >
+            RESTART SIMULATION
+          </button>
         </div>
       )}
     </div>
