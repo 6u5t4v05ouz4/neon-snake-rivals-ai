@@ -1,0 +1,5 @@
+{
+  "name": "Neon Snake Rivals AI",
+  "description": "An autonomous two-player snake game simulation featuring local pathfinding AI and real-time match commentary powered by Gemini.",
+  "requestFramePermissions": []
+}
