@@ -1,6 +1,6 @@
 export const BOARD_WIDTH = 50;
 export const BOARD_HEIGHT = 25;
-export const SERVER_URL = 'https://melodious-nature-production.up.railway.app'; // Production URL
+export const SERVER_URL = 'https://neon-snake-rivals-ai-production.up.railway.app'; // Production URL
 export const INITIAL_SPEED = 100; // ms per tick - Keeping for types/reference, but logic overrides
 export const START_GAME_SPEED = 200; // Start slow
 export const SPEED_DECREMENT = 5; // -5ms per point
