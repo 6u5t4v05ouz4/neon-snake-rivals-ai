@@ -7,6 +7,10 @@ import { GameEngine } from './GameEngine';
 const app = express();
 app.use(cors());
 
+app.get('/', (req, res) => {
+    res.send('Snake Server is Running!');
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
