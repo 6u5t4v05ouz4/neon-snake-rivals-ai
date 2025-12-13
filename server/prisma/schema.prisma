@@ -1,0 +1,14 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Match {
+  id        Int      @id @default(autoincrement())
+  winner    String?
+  duration  Int      // Seconds
+  createdAt DateTime @default(now())
+}

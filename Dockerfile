@@ -11,9 +11,12 @@ RUN npm install
 # Copy server source code
 COPY server/ .
 
+# Generate Prisma Client
+RUN npx prisma generate
+
 # Build the server
 RUN npm run build
 
-# Start the server
+# Start the server (Sync DB first)
 EXPOSE 3001
-CMD ["npm", "start"]
+CMD ["sh", "-c", "npx prisma db push && npm start"]

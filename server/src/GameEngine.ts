@@ -1,4 +1,5 @@
 import { GameState, Snake, GameStatus, Direction, Point } from './types';
+import { PrismaClient } from '@prisma/client';
 import { BOARD_WIDTH, BOARD_HEIGHT, SNAKE_1_START, SNAKE_2_START, MIN_SPEED, START_GAME_SPEED, SPEED_DECREMENT, WIN_SCORE, RESTART_DELAY } from './constants';
 import { getBestMove } from './aiLogic';
 
@@ -57,10 +58,12 @@ export class GameEngine {
     private loopInterval: NodeJS.Timeout | null = null;
     private countdownInterval: NodeJS.Timeout | null = null;
     private ioCallback: (state: GameState) => void;
+    private prisma: PrismaClient;
 
-    constructor(ioCallback: (state: GameState) => void) {
+    constructor(ioCallback: (state: GameState) => void, prisma: PrismaClient) {
         this.gameState = createInitialState();
         this.ioCallback = ioCallback;
+        this.prisma = prisma;
         this.startGameLoop();
     }
 
@@ -179,6 +182,16 @@ export class GameEngine {
 
         if (newStatus === GameStatus.GAME_OVER) {
             this.gameState.nextMatchCountdown = RESTART_DELAY;
+
+            // Save Match Result
+            this.prisma.match.create({
+                data: {
+                    winner: winner,
+                    duration: Math.floor(this.gameState.tick * 0.016), // Approx seconds
+                }
+            }).then(() => console.log('Match saved:', winner))
+                .catch((e: any) => console.error('Failed to save match:', e));
+
             this.startCountdown();
         }
 

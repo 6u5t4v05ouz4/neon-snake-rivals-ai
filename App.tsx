@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSnakeGame } from './hooks/useSnakeGame';
 import SnakeBoard from './components/SnakeBoard';
+import StatsPanel from './components/StatsPanel';
 import { Play, Pause, RotateCcw, Zap } from 'lucide-react';
 import { MIN_SPEED } from './constants';
 import { GameStatus } from './types';
@@ -54,7 +55,8 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Content Grid */}
-      <main className="w-full max-w-6xl flex flex-col gap-8 items-center">
+      <main className="relative z-10 w-full max-w-7xl mx-auto flex flex-col items-center justify-center p-4 min-h-screen">
+        <StatsPanel />
 
         {/* Game Board (Full Width) */}
         <div className="w-full flex flex-col gap-4 items-center">

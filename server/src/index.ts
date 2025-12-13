@@ -3,12 +3,42 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import { GameEngine } from './GameEngine';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 const app = express();
 app.use(cors());
 
 app.get('/', (req, res) => {
     res.send('Snake Server is Running!');
+});
+
+app.get('/stats', async (req, res) => {
+    try {
+        const totalMatches = await prisma.match.count();
+
+        // Group by winner
+        const wins = await prisma.match.groupBy({
+            by: ['winner'],
+            _count: {
+                winner: true,
+            },
+        });
+
+        const stats = {
+            totalMatches,
+            wins: wins.reduce((acc: Record<string, number>, curr: any) => {
+                if (curr.winner) acc[curr.winner] = curr._count.winner;
+                return acc;
+            }, {} as Record<string, number>)
+        };
+
+        res.json(stats);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to fetch stats' });
+    }
 });
 
 const server = http.createServer(app);
@@ -25,7 +55,7 @@ const PORT = process.env.PORT || 3001;
 const gameEngine = new GameEngine((gameState) => {
     // Broadcast state to all connected clients
     io.emit('gameState', gameState);
-});
+}, prisma);
 
 io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
