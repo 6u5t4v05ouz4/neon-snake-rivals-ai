@@ -6,9 +6,21 @@ datasource db {
   provider = "postgresql"
 }
 
+model Session {
+  id            Int       @id @default(autoincrement())
+  startedAt     DateTime  @default(now())
+  endedAt       DateTime?
+  cyanWins      Int       @default(0)
+  magentaWins   Int       @default(0)
+  totalMatches  Int       @default(0)
+  matches       Match[]
+}
+
 model Match {
   id        Int      @id @default(autoincrement())
   winner    String?
   duration  Int      // Seconds
   createdAt DateTime @default(now())
+  sessionId Int?
+  session   Session? @relation(fields: [sessionId], references: [id])
 }

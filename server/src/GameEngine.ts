@@ -59,11 +59,13 @@ export class GameEngine {
     private countdownInterval: NodeJS.Timeout | null = null;
     private ioCallback: (state: GameState) => void;
     private prisma: PrismaClient;
+    private sessionId: number;
 
-    constructor(ioCallback: (state: GameState) => void, prisma: PrismaClient) {
+    constructor(ioCallback: (state: GameState) => void, prisma: PrismaClient, sessionId: number) {
         this.gameState = createInitialState();
         this.ioCallback = ioCallback;
         this.prisma = prisma;
+        this.sessionId = sessionId;
         this.startGameLoop();
     }
 
@@ -183,14 +185,8 @@ export class GameEngine {
         if (newStatus === GameStatus.GAME_OVER) {
             this.gameState.nextMatchCountdown = RESTART_DELAY;
 
-            // Save Match Result
-            this.prisma.match.create({
-                data: {
-                    winner: winner,
-                    duration: Math.floor(this.gameState.tick * 0.016), // Approx seconds
-                }
-            }).then(() => console.log('Match saved:', winner))
-                .catch((e: any) => console.error('Failed to save match:', e));
+            // Save Match Result and update session
+            this.saveMatchResult(winner, Math.floor(this.gameState.tick * 0.016));
 
             this.startCountdown();
         }
@@ -227,5 +223,35 @@ export class GameEngine {
         this.countdownInterval = null;
         this.gameState = createInitialState();
         this.ioCallback(this.gameState);
+    }
+
+    private async saveMatchResult(winner: string | null, duration: number) {
+        try {
+            // Create match linked to session
+            await this.prisma.match.create({
+                data: {
+                    winner,
+                    duration,
+                    sessionId: this.sessionId,
+                },
+            });
+
+            // Update session stats
+            const updateData: any = { totalMatches: { increment: 1 } };
+            if (winner?.includes('CYAN')) {
+                updateData.cyanWins = { increment: 1 };
+            } else if (winner?.includes('MAGENTA')) {
+                updateData.magentaWins = { increment: 1 };
+            }
+
+            await this.prisma.session.update({
+                where: { id: this.sessionId },
+                data: updateData,
+            });
+
+            console.log('Match saved:', winner);
+        } catch (e) {
+            console.error('Failed to save match:', e);
+        }
     }
 }
