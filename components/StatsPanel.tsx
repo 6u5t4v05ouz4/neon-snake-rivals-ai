@@ -15,7 +15,14 @@ interface Stats {
     currentSession: SessionStats | null;
 }
 
-const StatsPanel: React.FC = () => {
+interface StatsPanelProps {
+    currentScores: {
+        cyan: number;
+        magenta: number;
+    };
+}
+
+const StatsPanel: React.FC<StatsPanelProps> = ({ currentScores }) => {
     const [stats, setStats] = useState<Stats | null>(null);
 
     const fetchStats = async () => {
@@ -42,6 +49,19 @@ const StatsPanel: React.FC = () => {
 
     return (
         <div className="fixed top-4 right-4 bg-slate-900/90 border border-slate-700 p-4 rounded-lg shadow-xl backdrop-blur-md z-30 w-72">
+            {/* Live Score Board */}
+            <div className="flex gap-6 bg-slate-900/80 p-3 rounded-xl border border-slate-800 mb-4 justify-between">
+                <div className="text-center min-w-[60px]">
+                    <div className="text-[10px] text-cyan-400 font-bold mb-1">CYAN</div>
+                    <div className="text-xl font-mono text-white">{currentScores.cyan}</div>
+                </div>
+                <div className="w-[1px] bg-slate-700"></div>
+                <div className="text-center min-w-[60px]">
+                    <div className="text-[10px] text-fuchsia-500 font-bold mb-1">MAGENTA</div>
+                    <div className="text-xl font-mono text-white">{currentScores.magenta}</div>
+                </div>
+            </div>
+
             {/* Current Session */}
             {session && (
                 <div className="mb-4">

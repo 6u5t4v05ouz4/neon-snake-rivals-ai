@@ -56,7 +56,7 @@ const App: React.FC = () => {
 
       {/* Main Content Grid */}
       <main className="relative z-10 w-full max-w-7xl mx-auto flex flex-col items-center justify-center p-4 min-h-screen">
-        <StatsPanel />
+        <StatsPanel currentScores={{ cyan: s1.score, magenta: s2.score }} />
 
         {/* Game Board (Full Width) */}
         <div className="w-full flex flex-col gap-4 items-center">
