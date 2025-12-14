@@ -70,6 +70,7 @@ export class GameEngine {
     }
 
     private startGameLoop() {
+        console.log('Starting game loop...');
         // 60 FPS tick
         this.loopInterval = setInterval(() => this.tick(), 16);
     }
@@ -85,124 +86,132 @@ export class GameEngine {
     }
 
     private tick() {
-        if (this.gameState.status !== GameStatus.PLAYING) return;
+        try {
+            if (this.gameState.status !== GameStatus.PLAYING) return;
 
-        const now = Date.now();
-        let nextSnakes = this.gameState.snakes.map(snake => ({ ...snake, body: [...snake.body] }));
-        let nextFood = { ...this.gameState.food };
-        let newStatus: GameStatus = this.gameState.status;
-        let winner: string | null = this.gameState.winner;
-        let stateChanged = false;
+            const now = Date.now();
+            let nextSnakes = this.gameState.snakes.map(snake => ({ ...snake, body: [...snake.body] }));
+            let nextFood = { ...this.gameState.food };
+            let newStatus: GameStatus = this.gameState.status;
+            let winner: string | null = this.gameState.winner;
+            let stateChanged = false;
 
-        // 1. Move Snakes
-        nextSnakes.forEach(snake => {
-            if (snake.eliminated) return;
+            // 1. Move Snakes
+            nextSnakes.forEach(snake => {
+                if (snake.eliminated) return;
 
-            const speed = this.calculateSnakeSpeed(snake.score);
-            if (now - snake.lastMoveTime < speed) return;
+                const speed = this.calculateSnakeSpeed(snake.score);
+                if (now - snake.lastMoveTime < speed) return;
 
-            stateChanged = true;
-            snake.lastMoveTime = now;
-
-            // AI Decision
-            snake.direction = getBestMove(snake, nextSnakes, nextFood);
-
-            const head = snake.body[0];
-            let newHead = { ...head };
-
-            switch (snake.direction) {
-                case Direction.UP: newHead.y -= 1; break;
-                case Direction.DOWN: newHead.y += 1; break;
-                case Direction.LEFT: newHead.x -= 1; break;
-                case Direction.RIGHT: newHead.x += 1; break;
-            }
-
-            // Check Collision with Food
-            if (newHead.x === nextFood.x && newHead.y === nextFood.y) {
-                snake.score += 1;
-                snake.body.unshift(newHead); // Grow
-                // Check Win Condition
-                if (snake.score >= WIN_SCORE) {
-                    // Flagging handled in step 3
-                }
-                nextFood = this.spawnFood(nextSnakes);
-            } else {
-                // Move normally
-                snake.body.pop();
-                snake.body.unshift(newHead);
-            }
-        });
-
-        // 2. Collision Detection
-        nextSnakes.forEach(snake => {
-            if (snake.eliminated) return;
-            const head = snake.body[0];
-
-            // Wall Collision
-            if (head.x < 0 || head.x >= BOARD_WIDTH || head.y < 0 || head.y >= BOARD_HEIGHT) {
-                snake.eliminated = true;
                 stateChanged = true;
-            }
+                snake.lastMoveTime = now;
 
-            // Self/Other Collision
-            nextSnakes.forEach(other => {
-                // Head hitting other body
-                if (other.body.some((segment, index) => {
-                    // If checking self, ignore head (index 0)
-                    if (snake.id === other.id && index === 0) return false;
-                    return segment.x === head.x && segment.y === head.y;
-                })) {
-                    snake.eliminated = true;
-                    stateChanged = true;
+                // AI Decision
+                snake.direction = getBestMove(snake, nextSnakes, nextFood);
+
+                const head = snake.body[0];
+                let newHead = { ...head };
+
+                switch (snake.direction) {
+                    case Direction.UP: newHead.y -= 1; break;
+                    case Direction.DOWN: newHead.y += 1; break;
+                    case Direction.LEFT: newHead.x -= 1; break;
+                    case Direction.RIGHT: newHead.x += 1; break;
                 }
 
-                // Head-to-Head (Both die?) - Simple version: random or both die. Let's say if positions equal.
-                if (snake.id !== other.id && head.x === other.body[0].x && head.y === other.body[0].y) {
-                    snake.eliminated = true;
-                    other.eliminated = true;
-                    stateChanged = true;
+                // Check Collision with Food
+                if (newHead.x === nextFood.x && newHead.y === nextFood.y) {
+                    snake.score += 1;
+                    snake.body.unshift(newHead); // Grow
+                    // Check Win Condition
+                    if (snake.score >= WIN_SCORE) {
+                        // Flagging handled in step 3
+                    }
+                    nextFood = this.spawnFood(nextSnakes);
+                } else {
+                    // Move normally
+                    snake.body.pop();
+                    snake.body.unshift(newHead);
                 }
             });
-        });
 
-        // 3. Determine Winner
-        const aliveSnakes = nextSnakes.filter(s => !s.eliminated);
-        const scoreWinner = nextSnakes.find(s => s.score >= WIN_SCORE);
+            // 2. Collision Detection
+            nextSnakes.forEach(snake => {
+                if (snake.eliminated) return;
+                const head = snake.body[0];
 
-        if (scoreWinner) {
-            newStatus = GameStatus.GAME_OVER;
-            winner = scoreWinner.name;
-        } else if (aliveSnakes.length === 0) {
-            newStatus = GameStatus.GAME_OVER;
-            // Tie breaker or Draw
-            winner = null;
-        } else if (aliveSnakes.length === 1 && nextSnakes.length > 1) {
-            // Last man standing
-            newStatus = GameStatus.GAME_OVER;
-            winner = aliveSnakes[0].name;
+                // Wall Collision
+                if (head.x < 0 || head.x >= BOARD_WIDTH || head.y < 0 || head.y >= BOARD_HEIGHT) {
+                    snake.eliminated = true;
+                    stateChanged = true;
+                }
+
+                // Self/Other Collision
+                nextSnakes.forEach(other => {
+                    // Head hitting other body
+                    if (other.body.some((segment, index) => {
+                        // If checking self, ignore head (index 0)
+                        if (snake.id === other.id && index === 0) return false;
+                        return segment.x === head.x && segment.y === head.y;
+                    })) {
+                        snake.eliminated = true;
+                        stateChanged = true;
+                    }
+
+                    // Head-to-Head (Both die?) - Simple version: random or both die. Let's say if positions equal.
+                    if (snake.id !== other.id && head.x === other.body[0].x && head.y === other.body[0].y) {
+                        snake.eliminated = true;
+                        other.eliminated = true;
+                        stateChanged = true;
+                    }
+                });
+            });
+
+            // 3. Determine Winner
+            const aliveSnakes = nextSnakes.filter(s => !s.eliminated);
+            const scoreWinner = nextSnakes.find(s => s.score >= WIN_SCORE);
+
+            if (scoreWinner) {
+                newStatus = GameStatus.GAME_OVER;
+                winner = scoreWinner.name;
+            } else if (aliveSnakes.length === 0) {
+                newStatus = GameStatus.GAME_OVER;
+                // Tie breaker or Draw
+                winner = null;
+            } else if (aliveSnakes.length === 1 && nextSnakes.length > 1) {
+                // Last man standing
+                newStatus = GameStatus.GAME_OVER;
+                winner = aliveSnakes[0].name;
+            }
+
+            if (newStatus === GameStatus.GAME_OVER) {
+                this.gameState.nextMatchCountdown = RESTART_DELAY;
+
+                // Save Match Result and update session
+                this.saveMatchResult(winner, Math.floor(this.gameState.tick * 0.016));
+
+                this.startCountdown();
+            }
+
+            this.gameState = {
+                ...this.gameState,
+                snakes: nextSnakes,
+                food: nextFood,
+                status: newStatus,
+                winner,
+                tick: this.gameState.tick + 1,
+            };
+
+            // Broadcast only if changed or periodically (e.g. every tick for smoothness on client interpolation)
+            // For now, emit every tick to keep 60fps local sync simple
+            this.ioCallback(this.gameState);
+
+            if (this.gameState.tick % 60 === 0) {
+                console.log(`Tick ${this.gameState.tick}: Status=${this.gameState.status}`);
+            }
+        } catch (e) {
+            console.error('Error in game loop tick:', e);
         }
-
-        if (newStatus === GameStatus.GAME_OVER) {
-            this.gameState.nextMatchCountdown = RESTART_DELAY;
-
-            // Save Match Result and update session
-            this.saveMatchResult(winner, Math.floor(this.gameState.tick * 0.016));
-
-            this.startCountdown();
-        }
-
-        this.gameState = {
-            ...this.gameState,
-            snakes: nextSnakes,
-            food: nextFood,
-            status: newStatus,
-            winner,
-            tick: this.gameState.tick + 1,
-        };
-
-        // Broadcast only if changed or periodically (e.g. every tick for smoothness on client interpolation)
-        // For now, emit every tick to keep 60fps local sync simple
-        this.ioCallback(this.gameState);
     }
 
     private startCountdown() {
