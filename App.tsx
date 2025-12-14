@@ -40,18 +40,7 @@ const App: React.FC = () => {
           </p>
         </div>
 
-        {/* Score Board */}
-        <div className="flex gap-6 bg-slate-900/80 p-3 rounded-xl border border-slate-800">
-          <div className="text-center min-w-[80px]">
-            <div className="text-xs text-cyan-400 font-bold mb-1">CYAN VIPER</div>
-            <div className="text-2xl font-mono">{s1.score}</div>
-          </div>
-          <div className="w-[1px] bg-slate-700"></div>
-          <div className="text-center min-w-[80px]">
-            <div className="text-xs text-fuchsia-500 font-bold mb-1">MAGENTA PYTHON</div>
-            <div className="text-2xl font-mono">{s2.score}</div>
-          </div>
-        </div>
+
       </header>
 
       {/* Main Content Grid */}
