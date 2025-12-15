@@ -232,7 +232,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
                                 {userBet.amount.toFixed(2)} SOL on {userBet.side.toUpperCase()} ✓
                             </div>
                         </div>
-                    ) : (
+                    ) : isCountdown ? (
                         <>
                             <div className="flex gap-2 mb-2">
                                 <input
@@ -263,6 +263,10 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
                                 </button>
                             </div>
                         </>
+                    ) : (
+                        <div className="text-center text-slate-500 text-xs py-2">
+                            ⏳ Bets closed - game in progress
+                        </div>
                     )}
                 </div>
             )}
