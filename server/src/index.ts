@@ -64,10 +64,34 @@ app.get('/stats', async (req, res) => {
     }
 });
 
-// Current pool endpoint for betting
+// Current pool endpoint for betting (basic)
 app.get('/current-pool', (req, res) => {
     const poolInfo = getCurrentPoolInfo();
     res.json(poolInfo);
+});
+
+// Pool info with on-chain data
+app.get('/pool-info', async (req, res) => {
+    try {
+        const { getPoolInfo } = await import('./solana');
+        const poolInfo = await getPoolInfo();
+        res.json(poolInfo);
+    } catch (e) {
+        console.error("Error fetching pool info:", e);
+        res.status(500).json({ error: 'Failed to fetch pool info' });
+    }
+});
+
+// User bet status
+app.get('/user-bet/:pubkey', async (req, res) => {
+    try {
+        const { getUserBet } = await import('./solana');
+        const userBet = await getUserBet(req.params.pubkey);
+        res.json({ bet: userBet });
+    } catch (e) {
+        console.error("Error fetching user bet:", e);
+        res.status(500).json({ error: 'Failed to fetch user bet' });
+    }
 });
 
 const server = http.createServer(app);

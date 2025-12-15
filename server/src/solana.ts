@@ -56,6 +56,69 @@ try {
 let currentGameId = Date.now();
 let currentPoolPda: PublicKey | null = null;
 
+export async function getPoolInfo() {
+    if (!currentPoolPda || !program) {
+        return {
+            gameId: currentGameId,
+            poolPda: null,
+            cyanBets: 0,
+            magentaBets: 0,
+            totalBets: 0,
+            status: null,
+            winner: null
+        };
+    }
+
+    try {
+        // Fetch pool account data from chain
+        const poolAccount = await (program.account as any).gamePool.fetch(currentPoolPda);
+
+        return {
+            gameId: currentGameId,
+            poolPda: currentPoolPda.toBase58(),
+            cyanBets: poolAccount.cyanBets.toNumber() / 1e9, // Convert lamports to SOL
+            magentaBets: poolAccount.magentaBets.toNumber() / 1e9,
+            totalBets: poolAccount.totalBets.toNumber() / 1e9,
+            status: poolAccount.status.open ? 'open' : 'settled',
+            winner: poolAccount.winner ? (poolAccount.winner.cyan ? 'cyan' : 'magenta') : null
+        };
+    } catch (e) {
+        console.error("Error fetching pool info:", e);
+        return {
+            gameId: currentGameId,
+            poolPda: currentPoolPda?.toBase58() || null,
+            cyanBets: 0,
+            magentaBets: 0,
+            totalBets: 0,
+            status: null,
+            winner: null
+        };
+    }
+}
+
+export async function getUserBet(userPubkey: string) {
+    if (!currentPoolPda || !program) return null;
+
+    try {
+        const user = new PublicKey(userPubkey);
+        const [userBetPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from("bet"), currentPoolPda.toBuffer(), user.toBuffer()],
+            program.programId
+        );
+
+        const userBetAccount = await (program.account as any).userBet.fetch(userBetPda);
+
+        return {
+            side: userBetAccount.side.cyan ? 'cyan' : 'magenta',
+            amount: userBetAccount.amount.toNumber() / 1e9 // SOL
+        };
+    } catch (e) {
+        // User hasn't bet yet - this is expected
+        return null;
+    }
+}
+
+// Keep backwards compatibility
 export function getCurrentPoolInfo() {
     return {
         gameId: currentGameId,

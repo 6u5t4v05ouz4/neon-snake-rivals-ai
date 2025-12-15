@@ -38,8 +38,19 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ currentScores, isCountdown }) =
     const { publicKey, connected, sendTransaction } = useWallet();
     const anchorWallet = useAnchorWallet();
     const { connection } = useConnection();
-    const [betAmount, setBetAmount] = useState(0.01);
-    const [hasBetOnWinner, setHasBetOnWinner] = useState(false); // To implement claim later if needed
+    const [betAmount, setBetAmount] = useState(0.1);
+
+    // Pool and bet state
+    const [poolInfo, setPoolInfo] = useState<{
+        poolPda: string | null;
+        cyanBets: number;
+        magentaBets: number;
+        totalBets: number;
+        status: string | null;
+        winner: string | null;
+    } | null>(null);
+    const [userBet, setUserBet] = useState<{ side: string; amount: number } | null>(null);
+    const [isBetting, setIsBetting] = useState(false);
 
     const fetchStats = async () => {
         try {
@@ -59,15 +70,62 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ currentScores, isCountdown }) =
         return () => clearInterval(interval);
     }, []);
 
+    // Fetch pool info periodically during countdown
+    const fetchPoolInfo = async () => {
+        try {
+            const res = await fetch(`${SERVER_URL}/pool-info`);
+            if (res.ok) {
+                const data = await res.json();
+                setPoolInfo(data);
+                // Reset userBet if pool changed
+                if (poolInfo?.poolPda !== data.poolPda) {
+                    setUserBet(null);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to fetch pool info", e);
+        }
+    };
+
+    // Fetch user's bet for current pool
+    const fetchUserBet = async () => {
+        if (!publicKey || !poolInfo?.poolPda) return;
+        try {
+            const res = await fetch(`${SERVER_URL}/user-bet/${publicKey.toBase58()}`);
+            if (res.ok) {
+                const data = await res.json();
+                setUserBet(data.bet);
+            }
+        } catch (e) {
+            console.error("Failed to fetch user bet", e);
+        }
+    };
+
+    useEffect(() => {
+        if (isCountdown || poolInfo?.status === 'open') {
+            fetchPoolInfo();
+            const interval = setInterval(fetchPoolInfo, 3000);
+            return () => clearInterval(interval);
+        }
+    }, [isCountdown, poolInfo?.status]);
+
+    useEffect(() => {
+        if (connected && publicKey && poolInfo?.poolPda) {
+            fetchUserBet();
+        }
+    }, [connected, publicKey, poolInfo?.poolPda]);
+
     const placeBet = async (color: "cyan" | "magenta") => {
         if (!connected || !publicKey) {
             alert("Connect Wallet first!");
             return;
         }
 
+        setIsBetting(true);
         try {
             if (!anchorWallet) {
                 alert("Wallet not ready!");
+                setIsBetting(false);
                 return;
             }
 
@@ -79,6 +137,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ currentScores, isCountdown }) =
 
             if (!poolData.poolPda) {
                 alert("No active betting pool! Wait for next match countdown.");
+                setIsBetting(false);
                 return;
             }
 
@@ -117,6 +176,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ currentScores, isCountdown }) =
             if (simulation.value.err) {
                 console.error("Simulation failed:", simulation.value.logs);
                 alert(`Simulation failed: ${simulation.value.logs?.join('\n')}`);
+                setIsBetting(false);
                 return;
             }
 
@@ -127,12 +187,17 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ currentScores, isCountdown }) =
 
             await connection.confirmTransaction(sig, "confirmed");
 
+            // Update local state immediately
+            setUserBet({ side: color, amount: betAmount });
+
             alert(`Bet placed successfully on ${color.toUpperCase()}! TX: ${sig.slice(0, 8)}...`);
 
         } catch (e: any) {
             console.error("Bet error details:", e);
             const errorMessage = e?.logs?.join('\n') || e?.message || 'Unknown error';
             alert(`Failed to place bet: ${errorMessage}`);
+        } finally {
+            setIsBetting(false);
         }
     };
 
@@ -147,35 +212,79 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ currentScores, isCountdown }) =
                 <WalletMultiButton />
             </div>
 
-            {/* Betting UI (Only during countdown) */}
-            {isCountdown && connected && (
-                <div className="mb-4 p-3 bg-indigo-900/40 rounded border border-indigo-500/50">
-                    <h3 className="text-sm font-bold text-indigo-300 mb-2 text-center">PLACE YOUR BETS</h3>
-                    <div className="flex gap-2 mb-2">
-                        <input
-                            type="number"
-                            step="0.01"
-                            min="0.01"
-                            className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white text-right"
-                            value={betAmount}
-                            onChange={e => setBetAmount(Number(e.target.value))}
-                        />
-                        <span className="text-slate-400 self-center">SOL</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                        <button
-                            onClick={() => placeBet("cyan")}
-                            className="bg-cyan-900/80 hover:bg-cyan-700 text-cyan-200 text-xs py-2 px-1 rounded border border-cyan-500/30 transition-colors"
-                        >
-                            CYAN VIPER
-                        </button>
-                        <button
-                            onClick={() => placeBet("magenta")}
-                            className="bg-fuchsia-900/80 hover:bg-fuchsia-700 text-fuchsia-200 text-xs py-2 px-1 rounded border border-fuchsia-500/30 transition-colors"
-                        >
-                            MAGENTA PYTHON
-                        </button>
-                    </div>
+            {/* Betting Pool UI */}
+            {(isCountdown || poolInfo?.status === 'open') && connected && (
+                <div className="mb-4 p-3 bg-gradient-to-b from-indigo-900/50 to-purple-900/30 rounded-lg border border-indigo-500/50">
+                    <h3 className="text-sm font-bold text-indigo-300 mb-3 text-center flex items-center justify-center gap-2">
+                        🎲 BETTING POOL
+                    </h3>
+
+                    {/* Pool Totals */}
+                    {poolInfo && poolInfo.poolPda && (
+                        <div className="grid grid-cols-2 gap-2 mb-3 text-center">
+                            <div className="bg-cyan-900/30 p-2 rounded border border-cyan-500/30">
+                                <div className="text-[10px] text-cyan-400 font-semibold">CYAN</div>
+                                <div className="text-lg font-bold text-cyan-300">{poolInfo.cyanBets.toFixed(2)} SOL</div>
+                                <div className="text-[10px] text-cyan-500">
+                                    {poolInfo.totalBets > 0 ? Math.round(poolInfo.cyanBets / poolInfo.totalBets * 100) : 0}%
+                                </div>
+                            </div>
+                            <div className="bg-fuchsia-900/30 p-2 rounded border border-fuchsia-500/30">
+                                <div className="text-[10px] text-fuchsia-400 font-semibold">MAGENTA</div>
+                                <div className="text-lg font-bold text-fuchsia-300">{poolInfo.magentaBets.toFixed(2)} SOL</div>
+                                <div className="text-[10px] text-fuchsia-500">
+                                    {poolInfo.totalBets > 0 ? Math.round(poolInfo.magentaBets / poolInfo.totalBets * 100) : 0}%
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* User's Bet Status */}
+                    {userBet ? (
+                        <div className={`mb-3 p-2 rounded text-center ${userBet.side === 'cyan'
+                            ? 'bg-cyan-900/50 border border-cyan-500/50'
+                            : 'bg-fuchsia-900/50 border border-fuchsia-500/50'
+                            }`}>
+                            <div className="text-xs text-white/70">YOUR BET</div>
+                            <div className={`text-lg font-bold ${userBet.side === 'cyan' ? 'text-cyan-300' : 'text-fuchsia-300'}`}>
+                                {userBet.amount.toFixed(2)} SOL on {userBet.side.toUpperCase()} ✓
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Bet Amount Input */}
+                            <div className="flex gap-2 mb-2">
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0.01"
+                                    className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white text-right"
+                                    value={betAmount}
+                                    onChange={e => setBetAmount(Number(e.target.value))}
+                                    disabled={isBetting}
+                                />
+                                <span className="text-slate-400 self-center">SOL</span>
+                            </div>
+
+                            {/* Bet Buttons */}
+                            <div className="grid grid-cols-2 gap-2">
+                                <button
+                                    onClick={() => placeBet("cyan")}
+                                    disabled={isBetting}
+                                    className="bg-cyan-900/80 hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed text-cyan-200 text-xs py-2 px-1 rounded border border-cyan-500/30 transition-colors"
+                                >
+                                    {isBetting ? '...' : 'BET CYAN'}
+                                </button>
+                                <button
+                                    onClick={() => placeBet("magenta")}
+                                    disabled={isBetting}
+                                    className="bg-fuchsia-900/80 hover:bg-fuchsia-700 disabled:opacity-50 disabled:cursor-not-allowed text-fuchsia-200 text-xs py-2 px-1 rounded border border-fuchsia-500/30 transition-colors"
+                                >
+                                    {isBetting ? '...' : 'BET MAGENTA'}
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
 
