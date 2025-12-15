@@ -37,9 +37,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             const res = await fetch(`${SERVER_URL}/pool-info`);
             if (res.ok) {
                 const data = await res.json();
-                if (poolInfo?.poolPda !== data.poolPda) {
-                    setUserBet(null);
-                }
+                console.log("Pool info:", data);
                 setPoolInfo(data);
             }
         } catch (e) {
@@ -54,27 +52,47 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             const res = await fetch(`${SERVER_URL}/user-bet/${publicKey.toBase58()}`);
             if (res.ok) {
                 const data = await res.json();
-                setUserBet(data.bet);
+                console.log("User bet data:", data);
+                if (data.bet) {
+                    setUserBet(data.bet);
+                }
             }
         } catch (e) {
             console.error("Failed to fetch user bet", e);
         }
     };
 
+    // Store previous pool PDA to detect changes
+    const [prevPoolPda, setPrevPoolPda] = useState<string | null>(null);
+
     useEffect(() => {
         // Always fetch pool info when connected, to detect settled status for claims
         if (!connected) return;
 
-        fetchPoolInfo();
-        const interval = setInterval(fetchPoolInfo, 3000);
-        return () => clearInterval(interval);
-    }, [connected]);
+        const poll = async () => {
+            await fetchPoolInfo();
+            // Also fetch user bet each poll to detect existing bets
+            if (publicKey && poolInfo?.poolPda) {
+                await fetchUserBet();
+            }
+        };
 
+        poll();
+        const interval = setInterval(poll, 3000);
+        return () => clearInterval(interval);
+    }, [connected, publicKey]);
+
+    // Only reset userBet when pool actually changes
     useEffect(() => {
-        if (connected && publicKey && poolInfo?.poolPda) {
-            fetchUserBet();
+        if (poolInfo?.poolPda && poolInfo.poolPda !== prevPoolPda) {
+            console.log("Pool changed from", prevPoolPda, "to", poolInfo.poolPda);
+            if (prevPoolPda !== null) {
+                // Pool changed, reset user bet
+                setUserBet(null);
+            }
+            setPrevPoolPda(poolInfo.poolPda);
         }
-    }, [connected, publicKey, poolInfo?.poolPda]);
+    }, [poolInfo?.poolPda]);
 
     const placeBet = async (color: "cyan" | "magenta") => {
         if (!connected || !publicKey) {
