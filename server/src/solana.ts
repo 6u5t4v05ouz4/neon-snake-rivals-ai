@@ -170,7 +170,8 @@ export async function settleGame(winnerColor: "cyan" | "magenta") {
             .rpc();
 
         console.log(winnerColor.toUpperCase() + " venceu! Pool settled.");
-        currentPoolPda = null; // Reset
+        // Don't reset pool yet - let users claim first
+        // Pool will be replaced when createNewPool is called for next game
     } catch (err) {
         console.error("Error settling game:", err);
     }

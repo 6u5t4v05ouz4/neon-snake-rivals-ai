@@ -62,12 +62,13 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
     };
 
     useEffect(() => {
-        if (isCountdown || poolInfo?.status === 'open') {
-            fetchPoolInfo();
-            const interval = setInterval(fetchPoolInfo, 3000);
-            return () => clearInterval(interval);
-        }
-    }, [isCountdown, poolInfo?.status]);
+        // Always fetch pool info when connected, to detect settled status for claims
+        if (!connected) return;
+
+        fetchPoolInfo();
+        const interval = setInterval(fetchPoolInfo, 3000);
+        return () => clearInterval(interval);
+    }, [connected]);
 
     useEffect(() => {
         if (connected && publicKey && poolInfo?.poolPda) {
