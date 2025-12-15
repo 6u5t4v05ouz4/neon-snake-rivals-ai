@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useSnakeGame } from './hooks/useSnakeGame';
 import SnakeBoard from './components/SnakeBoard';
 import StatsPanel from './components/StatsPanel';
+import BettingPanel from './components/BettingPanel';
 import { Zap } from 'lucide-react';
 import { GameStatus } from './types';
 
@@ -28,6 +29,7 @@ const App: React.FC = () => {
 
   const s1 = gameState.snakes[0];
   const s2 = gameState.snakes[1];
+  const isCountdown = gameState.nextMatchCountdown !== null && gameState.nextMatchCountdown > 0;
 
   return (
     <ConnectionProvider endpoint={endpoint}>
@@ -47,19 +49,18 @@ const App: React.FC = () => {
               </div>
             </header>
 
-            {/* Main Content Grid */}
-            <main className="relative z-10 w-full max-w-7xl mx-auto flex flex-col items-center justify-center p-4 min-h-screen">
-              {/* Pass isCountdown based on game status or if countdown > 0 */}
-              <StatsPanel
-                currentScores={{ cyan: s1.score, magenta: s2.score }}
-                isCountdown={gameState.nextMatchCountdown !== null && gameState.nextMatchCountdown > 0}
-              />
+            {/* Left Panel - Betting */}
+            <BettingPanel isCountdown={isCountdown} />
 
-              {/* Game Board (Full Width) */}
+            {/* Right Panel - Stats */}
+            <StatsPanel currentScores={{ cyan: s1.score, magenta: s2.score }} />
+
+            {/* Main Content - Game Board (Center) */}
+            <main className="relative z-10 w-full max-w-4xl mx-auto flex flex-col items-center justify-center p-4">
               <div className="w-full flex flex-col gap-4 items-center">
                 <SnakeBoard gameState={gameState} />
 
-                {/* Status Indicator (Auto-Pilot) */}
+                {/* Status Indicator */}
                 <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 flex flex-wrap items-center justify-center gap-6">
                   <div className="flex items-center gap-4 bg-black/40 px-4 py-2 rounded-full border border-slate-800">
                     <Zap size={16} className="text-yellow-400" />
@@ -67,7 +68,6 @@ const App: React.FC = () => {
                   </div>
                 </div>
               </div>
-
             </main>
 
           </div>
