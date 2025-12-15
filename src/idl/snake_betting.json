@@ -8,21 +8,29 @@
     "instructions": [
         {
             "name": "initializePool",
+            "discriminator": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
             "accounts": [
                 {
                     "name": "pool",
-                    "isMut": true,
-                    "isSigner": false
+                    "writable": true
                 },
                 {
                     "name": "houseWallet",
-                    "isMut": true,
-                    "isSigner": true
+                    "writable": true,
+                    "signer": true
                 },
                 {
                     "name": "systemProgram",
-                    "isMut": false,
-                    "isSigner": false
+                    "address": "11111111111111111111111111111111"
                 }
             ],
             "args": [
@@ -34,33 +42,42 @@
         },
         {
             "name": "placeBet",
+            "discriminator": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1
+            ],
             "accounts": [
                 {
                     "name": "pool",
-                    "isMut": true,
-                    "isSigner": false
+                    "writable": true
                 },
                 {
                     "name": "userBet",
-                    "isMut": true,
-                    "isSigner": false
+                    "writable": true
                 },
                 {
                     "name": "user",
-                    "isMut": true,
-                    "isSigner": true
+                    "writable": true,
+                    "signer": true
                 },
                 {
                     "name": "systemProgram",
-                    "isMut": false,
-                    "isSigner": false
+                    "address": "11111111111111111111111111111111"
                 }
             ],
             "args": [
                 {
                     "name": "prediction",
                     "type": {
-                        "defined": "Prediction"
+                        "defined": {
+                            "name": "Prediction"
+                        }
                     }
                 },
                 {
@@ -71,28 +88,37 @@
         },
         {
             "name": "settleGame",
+            "discriminator": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                2
+            ],
             "accounts": [
                 {
                     "name": "pool",
-                    "isMut": true,
-                    "isSigner": false
+                    "writable": true
                 },
                 {
                     "name": "houseWallet",
-                    "isMut": true,
-                    "isSigner": false
+                    "writable": true
                 },
                 {
                     "name": "authority",
-                    "isMut": false,
-                    "isSigner": true
+                    "signer": true
                 }
             ],
             "args": [
                 {
                     "name": "winner",
                     "type": {
-                        "defined": "Prediction"
+                        "defined": {
+                            "name": "Prediction"
+                        }
                     }
                 }
             ]
