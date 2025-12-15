@@ -6,6 +6,7 @@ import { GameEngine } from './GameEngine';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
+import { getCurrentPoolInfo } from './solana';
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL || 'postgresql://postgres:bcmQaxDnVtZBzLnvQlwknkEuoWKkPLoG@postgres.railway.internal:5432/railway' });
 const adapter = new PrismaPg(pool);
@@ -61,6 +62,12 @@ app.get('/stats', async (req, res) => {
         console.error(error);
         res.status(500).json({ error: 'Failed to fetch stats' });
     }
+});
+
+// Current pool endpoint for betting
+app.get('/current-pool', (req, res) => {
+    const poolInfo = getCurrentPoolInfo();
+    res.json(poolInfo);
 });
 
 const server = http.createServer(app);

@@ -43,6 +43,13 @@ try {
 let currentGameId = Date.now();
 let currentPoolPda: PublicKey | null = null;
 
+export function getCurrentPoolInfo() {
+    return {
+        gameId: currentGameId,
+        poolPda: currentPoolPda?.toBase58() || null
+    };
+}
+
 export async function createNewPool() {
     if (!program) return;
     currentGameId = Date.now();

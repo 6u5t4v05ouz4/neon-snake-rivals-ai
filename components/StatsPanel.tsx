@@ -70,52 +70,49 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ currentScores, isCountdown }) =
                 alert("Wallet not ready!");
                 return;
             }
+
+            // Fetch current pool info from backend
+            const poolRes = await fetch(`${SERVER_URL}/current-pool`);
+            const poolData = await poolRes.json();
+
+            if (!poolData.poolPda) {
+                alert("No active betting pool! Wait for next match countdown.");
+                return;
+            }
+
             const provider = new anchor.AnchorProvider(connection, anchorWallet, { commitment: "confirmed" });
             anchor.setProvider(provider);
             const program = new anchor.Program(idl as unknown as anchor.Idl, provider);
 
-            // Assume we can get current game ID from somewhere OR derive it.
-            // For now, simpler: derive pool PDA based on "pool" and...
-            // Wait, we need the GameID that the backend created. 
-            // In a real app we'd fetch the current GameID from the backend or the pool list.
-            // For this snippet, let's assume valid pool is communicated or we fail.
-            // Or maybe simpler: Frontend creates a bet for the *latest* pool if we could fetch it.
-            // Since I don't have a standardized way to sync GameID without backend API change, 
-            // I'll skip the 'gameId' part in PDA for now if possible, OR assume user manually creates it?
-            // "No seu Backend... let currentGameId = Date.now();"
+            const currentPoolPda = new PublicKey(poolData.poolPda);
+            const gameId = poolData.gameId;
 
-            // IMPORTANT: The backend creates the pool with `currentGameId`. Frontend needs this ID to find the PDA.
-            // I should technically add `/current-pool` endpoint to backend to get this ID.
-            // BUT, for the sake of following the user's "Passo 2" strictly without modifying backend further unless told...
-            // Wait, Passo 2 says: "useEffect... if (currentPoolPda) // você já tem essa variável no frontend".
-            // It assumes I have it. I don't.
-            // I will implement a fetch to get currentPoolPda from backend or assume logic.
-            // Oh, I can just fetch the *latest* initialized pool account from chain? 
-            // Better: I'll assume I can't easily get it without an endpoint.
-            // I'll add a quick endpoint `/game-state` to backend to return `currentGameId` or `currentPoolPda`.
+            // Derive userBet PDA
+            const [userBetPda] = PublicKey.findProgramAddressSync(
+                [Buffer.from("bet"), currentPoolPda.toBuffer(), publicKey.toBuffer()],
+                PROGRAM_ID
+            );
 
-            // For now, here is the function assuming we have it.
             const amount = new BN(betAmount * LAMPORTS_PER_SOL);
+            const prediction = color === "cyan" ? { cyan: {} } : { magenta: {} };
 
-            // We need a way to find the Pool PDA. Let's assume we fetch it or it's global for now to prevent compiling error.
-            // Or better, let's derive it if we had the ID.
-            // Let's rely on finding the pool via `program.account.pool.all()` (might be slow) or just an endpoint.
-
-            // Re-reading user request: "Carrega pool info a cada 5s (ou via socket do backend)" in useEffect.
-            // Implicitly means I should have updated backend to send this.
-
-            alert(`Placing bet on ${color} (Implementation pending Pool PDA sync)`);
-
-            /* 
-            const tx = await program.methods.placeBet(color === "cyan" ? {cyan:{}} : {magenta:{}}, amount)
-                .accountsPartial({ pool: currentPoolPda, userBet: userBetPda })
+            const tx = await program.methods.placeBet(prediction, amount)
+                .accountsPartial({
+                    pool: currentPoolPda,
+                    userBet: userBetPda,
+                    user: publicKey,
+                    systemProgram: new PublicKey("11111111111111111111111111111111")
+                })
                 .transaction();
-            await sendTransaction(tx, connection);
-            */
+
+            const sig = await sendTransaction(tx, connection);
+            await connection.confirmTransaction(sig, "confirmed");
+
+            alert(`Bet placed successfully on ${color.toUpperCase()}! TX: ${sig.slice(0, 8)}...`);
 
         } catch (e) {
             console.error("Bet error:", e);
-            alert("Failed to place bet");
+            alert(`Failed to place bet: ${e instanceof Error ? e.message : 'Unknown error'}`);
         }
     };
 
