@@ -139,6 +139,53 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
         }
     };
 
+    const [isClaiming, setIsClaiming] = useState(false);
+
+    const claimWinnings = async () => {
+        if (!connected || !publicKey || !anchorWallet || !poolInfo?.poolPda) {
+            alert("Cannot claim: missing wallet or pool");
+            return;
+        }
+
+        setIsClaiming(true);
+        try {
+            const provider = new anchor.AnchorProvider(connection, anchorWallet, { commitment: "confirmed" });
+            anchor.setProvider(provider);
+            const program = new anchor.Program(idl as unknown as anchor.Idl, provider);
+
+            const poolPda = new PublicKey(poolInfo.poolPda);
+
+            const tx = await program.methods.claimWinnings()
+                .accounts({
+                    pool: poolPda,
+                    user: publicKey,
+                })
+                .transaction();
+
+            const { blockhash } = await connection.getLatestBlockhash();
+            tx.recentBlockhash = blockhash;
+            tx.feePayer = publicKey;
+
+            const sig = await sendTransaction(tx, connection);
+            await connection.confirmTransaction(sig, "confirmed");
+
+            alert(`Winnings claimed! TX: ${sig.slice(0, 8)}...`);
+            setUserBet(null); // Clear after claim
+
+        } catch (e: any) {
+            console.error("Claim error:", e);
+            alert(`Claim failed: ${e?.message || 'Unknown error'}`);
+        } finally {
+            setIsClaiming(false);
+        }
+    };
+
+    // Check if user can claim (pool settled, user bet on winner)
+    const canClaim = poolInfo?.status === 'settled' &&
+        poolInfo?.winner &&
+        userBet &&
+        userBet.side === poolInfo.winner;
+
     return (
         <div className="fixed top-4 left-4 bg-slate-900/90 border border-slate-700 p-4 rounded-lg shadow-xl backdrop-blur-md z-30 w-72">
             {/* Wallet Connect */}
@@ -176,8 +223,8 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
                     {/* User's Bet Status */}
                     {userBet ? (
                         <div className={`p-2 rounded text-center ${userBet.side === 'cyan'
-                                ? 'bg-cyan-900/50 border border-cyan-500/50'
-                                : 'bg-fuchsia-900/50 border border-fuchsia-500/50'
+                            ? 'bg-cyan-900/50 border border-cyan-500/50'
+                            : 'bg-fuchsia-900/50 border border-fuchsia-500/50'
                             }`}>
                             <div className="text-xs text-white/70">YOUR BET</div>
                             <div className={`text-lg font-bold ${userBet.side === 'cyan' ? 'text-cyan-300' : 'text-fuchsia-300'}`}>
@@ -222,6 +269,37 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             {/* Wallet not connected message */}
             {!connected && (
                 <p className="text-center text-slate-500 text-xs">Connect wallet to bet</p>
+            )}
+
+            {/* Settled Pool - Claim Winnings UI */}
+            {poolInfo?.status === 'settled' && connected && userBet && (
+                <div className="mt-4 p-3 bg-gradient-to-b from-amber-900/30 to-orange-900/20 rounded-lg border border-amber-500/50">
+                    <h3 className="text-sm font-bold text-amber-300 mb-2 text-center">
+                        🏆 GAME SETTLED
+                    </h3>
+                    <div className={`text-center mb-3 p-2 rounded ${poolInfo.winner === 'cyan' ? 'bg-cyan-900/40' : 'bg-fuchsia-900/40'
+                        }`}>
+                        <div className="text-xs text-white/70">WINNER</div>
+                        <div className={`text-xl font-bold ${poolInfo.winner === 'cyan' ? 'text-cyan-300' : 'text-fuchsia-300'
+                            }`}>
+                            {poolInfo.winner?.toUpperCase()}
+                        </div>
+                    </div>
+
+                    {canClaim ? (
+                        <button
+                            onClick={claimWinnings}
+                            disabled={isClaiming}
+                            className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-lg border border-amber-400/50 transition-all shadow-lg"
+                        >
+                            {isClaiming ? 'Claiming...' : '💰 CLAIM WINNINGS'}
+                        </button>
+                    ) : userBet ? (
+                        <div className="text-center text-slate-400 text-sm py-2">
+                            😢 Better luck next time!
+                        </div>
+                    ) : null}
+                </div>
             )}
         </div>
     );
