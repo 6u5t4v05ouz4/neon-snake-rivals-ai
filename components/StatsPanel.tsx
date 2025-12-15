@@ -75,6 +75,8 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ currentScores, isCountdown }) =
             const poolRes = await fetch(`${SERVER_URL}/current-pool`);
             const poolData = await poolRes.json();
 
+            console.log("Pool data from backend:", poolData);
+
             if (!poolData.poolPda) {
                 alert("No active betting pool! Wait for next match countdown.");
                 return;
@@ -85,34 +87,35 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ currentScores, isCountdown }) =
             const program = new anchor.Program(idl as unknown as anchor.Idl, provider);
 
             const currentPoolPda = new PublicKey(poolData.poolPda);
-            const gameId = poolData.gameId;
-
-            // Derive userBet PDA
-            const [userBetPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from("bet"), currentPoolPda.toBuffer(), publicKey.toBuffer()],
-                PROGRAM_ID
-            );
+            console.log("Pool PDA:", currentPoolPda.toBase58());
+            console.log("User:", publicKey.toBase58());
 
             const amount = new BN(betAmount * LAMPORTS_PER_SOL);
             const side = color === "cyan" ? { cyan: {} } : { magenta: {} };
 
+            console.log("Placing bet:", { side, amount: amount.toString() });
+
+            // Let Anchor derive the userBet PDA automatically based on IDL
             const tx = await program.methods.placeBet(side, amount)
-                .accountsPartial({
+                .accounts({
                     pool: currentPoolPda,
-                    userBet: userBetPda,
                     user: publicKey,
-                    systemProgram: new PublicKey("11111111111111111111111111111111")
                 })
                 .transaction();
 
+            console.log("Transaction built, sending...");
+
             const sig = await sendTransaction(tx, connection);
+            console.log("Transaction sent:", sig);
+
             await connection.confirmTransaction(sig, "confirmed");
 
             alert(`Bet placed successfully on ${color.toUpperCase()}! TX: ${sig.slice(0, 8)}...`);
 
-        } catch (e) {
-            console.error("Bet error:", e);
-            alert(`Failed to place bet: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        } catch (e: any) {
+            console.error("Bet error details:", e);
+            const errorMessage = e?.logs?.join('\n') || e?.message || 'Unknown error';
+            alert(`Failed to place bet: ${errorMessage}`);
         }
     };
 
