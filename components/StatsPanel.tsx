@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { SERVER_URL } from '../constants';
-import { useWallet, useConnection } from '@solana/wallet-adapter-react';
+import { useWallet, useConnection, useAnchorWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { BN } from 'bn.js';
@@ -36,6 +36,7 @@ interface StatsPanelProps {
 const StatsPanel: React.FC<StatsPanelProps> = ({ currentScores, isCountdown }) => {
     const [stats, setStats] = useState<Stats | null>(null);
     const { publicKey, connected, sendTransaction } = useWallet();
+    const anchorWallet = useAnchorWallet();
     const { connection } = useConnection();
     const [betAmount, setBetAmount] = useState(0.01);
     const [hasBetOnWinner, setHasBetOnWinner] = useState(false); // To implement claim later if needed
@@ -65,8 +66,13 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ currentScores, isCountdown }) =
         }
 
         try {
-            const provider = new anchor.AnchorProvider(connection, {} as any, { commitment: "confirmed" });
-            const program = new anchor.Program(idl as any, PROGRAM_ID, provider);
+            if (!anchorWallet) {
+                alert("Wallet not ready!");
+                return;
+            }
+            const provider = new anchor.AnchorProvider(connection, anchorWallet, { commitment: "confirmed" });
+            anchor.setProvider(provider);
+            const program = new anchor.Program(idl as unknown as anchor.Idl, provider);
 
             // Assume we can get current game ID from somewhere OR derive it.
             // For now, simpler: derive pool PDA based on "pool" and...
