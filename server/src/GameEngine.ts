@@ -2,6 +2,7 @@ import { GameState, Snake, GameStatus, Direction, Point } from './types';
 import { PrismaClient } from '@prisma/client';
 import { BOARD_WIDTH, BOARD_HEIGHT, SNAKE_1_START, SNAKE_2_START, MIN_SPEED, START_GAME_SPEED, SPEED_DECREMENT, WIN_SCORE, RESTART_DELAY } from './constants';
 import { getBestMove } from './aiLogic';
+import { createNewPool, settleGame } from './solana';
 
 const getRandomFreePoint = (occupiedBodies: Point[][]): Point => {
     while (true) {
@@ -124,8 +125,8 @@ export class GameEngine {
                     snake.score += 1;
                     snake.body.unshift(newHead); // Grow
                     // Check Win Condition
-                    if (snake.score >= WIN_SCORE) {
-                        // Flagging handled in step 3
+                    if (snake.score >= WIN_SCORE && !snake.eliminated) {
+                        // Trigger win logic strictly in step 3 to avoid double call
                     }
                     nextFood = this.spawnFood(nextSnakes);
                 } else {
@@ -174,6 +175,9 @@ export class GameEngine {
             if (scoreWinner) {
                 newStatus = GameStatus.GAME_OVER;
                 winner = scoreWinner.name;
+                // Solana Settle
+                if (scoreWinner.colorClass === 'cyan') settleGame('cyan');
+                else if (scoreWinner.colorClass === 'fuchsia') settleGame('magenta');
             } else if (aliveSnakes.length === 0) {
                 newStatus = GameStatus.GAME_OVER;
                 // Tie breaker or Draw
@@ -182,6 +186,9 @@ export class GameEngine {
                 // Last man standing
                 newStatus = GameStatus.GAME_OVER;
                 winner = aliveSnakes[0].name;
+                // Winner by elimination
+                if (aliveSnakes[0].colorClass === "cyan") settleGame("cyan");
+                else if (aliveSnakes[0].colorClass === "fuchsia") settleGame("magenta");
             }
 
             if (newStatus === GameStatus.GAME_OVER) {
@@ -216,6 +223,9 @@ export class GameEngine {
 
     private startCountdown() {
         if (this.countdownInterval) clearInterval(this.countdownInterval);
+
+        // Start new betting pool
+        createNewPool();
 
         this.countdownInterval = setInterval(() => {
             if (this.gameState.nextMatchCountdown && this.gameState.nextMatchCountdown > 0) {

@@ -1,0 +1,113 @@
+{
+    "version": "0.1.0",
+    "name": "snake_betting",
+    "instructions": [
+        {
+            "name": "initializePool",
+            "accounts": [
+                {
+                    "name": "pool",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "houseWallet",
+                    "isMut": true,
+                    "isSigner": true
+                },
+                {
+                    "name": "systemProgram",
+                    "isMut": false,
+                    "isSigner": false
+                }
+            ],
+            "args": [
+                {
+                    "name": "gameId",
+                    "type": "u64"
+                }
+            ]
+        },
+        {
+            "name": "placeBet",
+            "accounts": [
+                {
+                    "name": "pool",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "userBet",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "user",
+                    "isMut": true,
+                    "isSigner": true
+                },
+                {
+                    "name": "systemProgram",
+                    "isMut": false,
+                    "isSigner": false
+                }
+            ],
+            "args": [
+                {
+                    "name": "prediction",
+                    "type": {
+                        "defined": "Prediction"
+                    }
+                },
+                {
+                    "name": "amount",
+                    "type": "u64"
+                }
+            ]
+        },
+        {
+            "name": "settleGame",
+            "accounts": [
+                {
+                    "name": "pool",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "houseWallet",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "authority",
+                    "isMut": false,
+                    "isSigner": true
+                }
+            ],
+            "args": [
+                {
+                    "name": "winner",
+                    "type": {
+                        "defined": "Prediction"
+                    }
+                }
+            ]
+        }
+    ],
+    "types": [
+        {
+            "name": "Prediction",
+            "type": {
+                "kind": "enum",
+                "variants": [
+                    {
+                        "name": "Cyan"
+                    },
+                    {
+                        "name": "Magenta"
+                    }
+                ]
+            }
+        }
+    ]
+}
