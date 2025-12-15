@@ -1,10 +1,11 @@
-import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import path from 'path';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
+
   return {
     server: {
       port: 3000,
@@ -12,23 +13,28 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
-      nodePolyfills({
-        include: ['buffer', 'process', 'util', 'stream', 'events'],
-        globals: {
-          Buffer: true,
-          global: true,
-          process: true,
-        }
-      })
+      nodePolyfills(),
     ],
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+      global: 'globalThis',
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(__dirname, './src'),
+        '@solana/codecs-strings': path.resolve(__dirname, 'node_modules/@solana/codecs-strings/dist/index.browser.cjs'),
       }
+    },
+    optimizeDeps: {
+      include: [
+        '@solana/wallet-adapter-react',
+        '@solana/wallet-adapter-react-ui',
+        '@solana/wallet-adapter-wallets',
+        '@solana/web3.js',
+        '@coral-xyz/anchor',
+        'buffer'
+      ]
     }
   };
 });

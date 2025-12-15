@@ -6,7 +6,7 @@ import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { BN } from 'bn.js';
 import * as anchor from '@coral-xyz/anchor';
 // Import IDL
-import idl from '../idl/snake_betting.json';
+import idl from '../src/idl/snake_betting.json';
 
 // Constants
 const PROGRAM_ID = new PublicKey("4Mw572DpPh5UWWx9ic4sZBtG8UJRBujJPXrE2pcwvBzw");
