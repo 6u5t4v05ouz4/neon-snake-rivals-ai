@@ -35,7 +35,7 @@ const idlPath = path.resolve("idl/snake_betting.json");
 let program: anchor.Program;
 try {
     const idl = JSON.parse(fs.readFileSync(idlPath, "utf8"));
-    program = new anchor.Program(idl, PROGRAM_ID, provider);
+    program = new anchor.Program(idl as anchor.Idl, provider);
 } catch (e) {
     console.error("Failed to load IDL:", e);
 }
