@@ -94,9 +94,9 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ currentScores, isCountdown }) =
             );
 
             const amount = new BN(betAmount * LAMPORTS_PER_SOL);
-            const prediction = color === "cyan" ? { cyan: {} } : { magenta: {} };
+            const side = color === "cyan" ? { cyan: {} } : { magenta: {} };
 
-            const tx = await program.methods.placeBet(prediction, amount)
+            const tx = await program.methods.placeBet(side, amount)
                 .accountsPartial({
                     pool: currentPoolPda,
                     userBet: userBetPda,

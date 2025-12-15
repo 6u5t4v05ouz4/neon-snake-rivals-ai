@@ -3,62 +3,25 @@
     "metadata": {
         "name": "snake_betting",
         "version": "0.1.0",
-        "spec": "0.1.0"
+        "spec": "0.1.0",
+        "description": "Created with Anchor"
     },
     "instructions": [
         {
-            "name": "initializePool",
+            "name": "claim_winnings",
             "discriminator": [
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0
+                161,
+                215,
+                24,
+                59,
+                14,
+                236,
+                242,
+                221
             ],
             "accounts": [
                 {
                     "name": "pool",
-                    "writable": true
-                },
-                {
-                    "name": "houseWallet",
-                    "writable": true,
-                    "signer": true
-                },
-                {
-                    "name": "systemProgram",
-                    "address": "11111111111111111111111111111111"
-                }
-            ],
-            "args": [
-                {
-                    "name": "gameId",
-                    "type": "u64"
-                }
-            ]
-        },
-        {
-            "name": "placeBet",
-            "discriminator": [
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                1
-            ],
-            "accounts": [
-                {
-                    "name": "pool",
-                    "writable": true
-                },
-                {
-                    "name": "userBet",
                     "writable": true
                 },
                 {
@@ -67,16 +30,146 @@
                     "signer": true
                 },
                 {
-                    "name": "systemProgram",
+                    "name": "user_bet",
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    98,
+                                    101,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "pool"
+                            },
+                            {
+                                "kind": "account",
+                                "path": "user"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "system_program",
+                    "address": "11111111111111111111111111111111"
+                }
+            ],
+            "args": []
+        },
+        {
+            "name": "initialize_pool",
+            "discriminator": [
+                95,
+                180,
+                10,
+                172,
+                84,
+                174,
+                232,
+                40
+            ],
+            "accounts": [
+                {
+                    "name": "pool",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    112,
+                                    111,
+                                    111,
+                                    108
+                                ]
+                            },
+                            {
+                                "kind": "arg",
+                                "path": "game_id"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "user",
+                    "writable": true,
+                    "signer": true
+                },
+                {
+                    "name": "house_wallet"
+                },
+                {
+                    "name": "system_program",
                     "address": "11111111111111111111111111111111"
                 }
             ],
             "args": [
                 {
-                    "name": "prediction",
+                    "name": "game_id",
+                    "type": "u64"
+                }
+            ]
+        },
+        {
+            "name": "place_bet",
+            "discriminator": [
+                222,
+                62,
+                67,
+                220,
+                63,
+                166,
+                126,
+                33
+            ],
+            "accounts": [
+                {
+                    "name": "pool",
+                    "writable": true
+                },
+                {
+                    "name": "user_bet",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    98,
+                                    101,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "pool"
+                            },
+                            {
+                                "kind": "account",
+                                "path": "user"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "user",
+                    "writable": true,
+                    "signer": true
+                },
+                {
+                    "name": "system_program",
+                    "address": "11111111111111111111111111111111"
+                }
+            ],
+            "args": [
+                {
+                    "name": "side",
                     "type": {
                         "defined": {
-                            "name": "Prediction"
+                            "name": "Color"
                         }
                     }
                 },
@@ -87,16 +180,16 @@
             ]
         },
         {
-            "name": "settleGame",
+            "name": "settle_game",
             "discriminator": [
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                2
+                96,
+                54,
+                24,
+                189,
+                239,
+                198,
+                86,
+                29
             ],
             "accounts": [
                 {
@@ -104,7 +197,7 @@
                     "writable": true
                 },
                 {
-                    "name": "houseWallet",
+                    "name": "house_wallet",
                     "writable": true
                 },
                 {
@@ -117,16 +210,96 @@
                     "name": "winner",
                     "type": {
                         "defined": {
-                            "name": "Prediction"
+                            "name": "Color"
                         }
                     }
                 }
             ]
         }
     ],
+    "accounts": [
+        {
+            "name": "GamePool",
+            "discriminator": [
+                206,
+                33,
+                215,
+                16,
+                75,
+                113,
+                78,
+                214
+            ]
+        },
+        {
+            "name": "UserBet",
+            "discriminator": [
+                180,
+                131,
+                8,
+                241,
+                60,
+                243,
+                46,
+                63
+            ]
+        }
+    ],
+    "errors": [
+        {
+            "code": 6000,
+            "name": "PoolClosed",
+            "msg": "Pool is closed"
+        },
+        {
+            "code": 6001,
+            "name": "ZeroAmount",
+            "msg": "Zero amount"
+        },
+        {
+            "code": 6002,
+            "name": "InvalidStatus",
+            "msg": "Invalid status"
+        },
+        {
+            "code": 6003,
+            "name": "EmptyPool",
+            "msg": "Empty pool"
+        },
+        {
+            "code": 6004,
+            "name": "NotSettled",
+            "msg": "Not settled"
+        },
+        {
+            "code": 6005,
+            "name": "NoWinner",
+            "msg": "No winner"
+        },
+        {
+            "code": 6006,
+            "name": "NotWinner",
+            "msg": "Not winner side"
+        },
+        {
+            "code": 6007,
+            "name": "NoBet",
+            "msg": "No bet"
+        },
+        {
+            "code": 6008,
+            "name": "ZeroPayout",
+            "msg": "Payout too low"
+        },
+        {
+            "code": 6009,
+            "name": "Overflow",
+            "msg": "Overflow"
+        }
+    ],
     "types": [
         {
-            "name": "Prediction",
+            "name": "Color",
             "type": {
                 "kind": "enum",
                 "variants": [
@@ -135,6 +308,90 @@
                     },
                     {
                         "name": "Magenta"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "GamePool",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "game_id",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "cyan_bets",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "magenta_bets",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "total_bets",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "status",
+                        "type": {
+                            "defined": {
+                                "name": "PoolStatus"
+                            }
+                        }
+                    },
+                    {
+                        "name": "winner",
+                        "type": {
+                            "option": {
+                                "defined": {
+                                    "name": "Color"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "house_wallet",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "bump",
+                        "type": "u8"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "PoolStatus",
+            "type": {
+                "kind": "enum",
+                "variants": [
+                    {
+                        "name": "Open"
+                    },
+                    {
+                        "name": "Settled"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "UserBet",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "side",
+                        "type": {
+                            "defined": {
+                                "name": "Color"
+                            }
+                        }
+                    },
+                    {
+                        "name": "amount",
+                        "type": "u64"
                     }
                 ]
             }
