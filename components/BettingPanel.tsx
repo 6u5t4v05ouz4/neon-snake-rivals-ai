@@ -31,6 +31,32 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
     const [userBet, setUserBet] = useState<{ side: string; amount: number } | null>(null);
     const [isBetting, setIsBetting] = useState(false);
 
+    // Save userBet to localStorage
+    const saveUserBet = (poolPda: string, bet: { side: string; amount: number }) => {
+        localStorage.setItem(`bet_${poolPda}`, JSON.stringify(bet));
+        setUserBet(bet);
+    };
+
+    // Load userBet from localStorage
+    const loadUserBet = (poolPda: string) => {
+        const saved = localStorage.getItem(`bet_${poolPda}`);
+        if (saved) {
+            try {
+                const bet = JSON.parse(saved);
+                setUserBet(bet);
+                return bet;
+            } catch (e) {
+                return null;
+            }
+        }
+        return null;
+    };
+
+    // Clear userBet when pool changes
+    const clearUserBet = () => {
+        setUserBet(null);
+    };
+
     // Fetch pool info
     const fetchPoolInfo = async () => {
         try {
@@ -45,52 +71,26 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
         }
     };
 
-    // Fetch user's bet
-    const fetchUserBet = async () => {
-        if (!publicKey || !poolInfo?.poolPda) return;
-        try {
-            const res = await fetch(`${SERVER_URL}/user-bet/${publicKey.toBase58()}`);
-            if (res.ok) {
-                const data = await res.json();
-                console.log("User bet data:", data);
-                if (data.bet) {
-                    setUserBet(data.bet);
-                }
-            }
-        } catch (e) {
-            console.error("Failed to fetch user bet", e);
-        }
-    };
-
-    // Store previous pool PDA to detect changes
-    const [prevPoolPda, setPrevPoolPda] = useState<string | null>(null);
-
     useEffect(() => {
-        // Always fetch pool info when connected, to detect settled status for claims
+        // Poll pool info when connected
         if (!connected) return;
 
         const poll = async () => {
             await fetchPoolInfo();
-            // Also fetch user bet each poll to detect existing bets
-            if (publicKey && poolInfo?.poolPda) {
-                await fetchUserBet();
-            }
         };
 
         poll();
         const interval = setInterval(poll, 3000);
         return () => clearInterval(interval);
-    }, [connected, publicKey]);
+    }, [connected]);
 
-    // Only reset userBet when pool actually changes
+    // Load userBet from localStorage when pool changes
     useEffect(() => {
-        if (poolInfo?.poolPda && poolInfo.poolPda !== prevPoolPda) {
-            console.log("Pool changed from", prevPoolPda, "to", poolInfo.poolPda);
-            if (prevPoolPda !== null) {
-                // Pool changed, reset user bet
-                setUserBet(null);
-            }
-            setPrevPoolPda(poolInfo.poolPda);
+        if (poolInfo?.poolPda) {
+            console.log("Loading bet for pool:", poolInfo.poolPda);
+            loadUserBet(poolInfo.poolPda);
+        } else {
+            clearUserBet();
         }
     }, [poolInfo?.poolPda]);
 
@@ -147,7 +147,9 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             const sig = await sendTransaction(tx, connection);
             await connection.confirmTransaction(sig, "confirmed");
 
-            setUserBet({ side: color, amount: betAmount });
+            // Save bet to localStorage for persistence
+            saveUserBet(poolData.poolPda, { side: color, amount: betAmount });
+            console.log("Bet saved:", { side: color, amount: betAmount });
             alert(`Bet placed on ${color.toUpperCase()}! TX: ${sig.slice(0, 8)}...`);
 
         } catch (e: any) {
