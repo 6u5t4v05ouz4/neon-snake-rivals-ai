@@ -9,20 +9,33 @@ const PROGRAM_ID = new PublicKey("4Mw572DpPh5UWWx9ic4sZBtG8UJRBujJPXrE2pcwvBzw")
 const connection = new Connection("https://api.devnet.solana.com", "confirmed");
 
 // Helpers to load wallet
-function loadWallet() {
+function loadWallet(): Keypair {
     try {
-        const keypairPath = process.env.BACKEND_WALLET || path.resolve("backend-keypair.json");
-        if (!fs.existsSync(keypairPath)) {
-            console.log("Generating new backend wallet...");
-            const kp = Keypair.generate();
-            fs.writeFileSync(keypairPath, JSON.stringify(Array.from(kp.secretKey)));
+        // First try to load from BACKEND_WALLET_KEY env var (JSON array)
+        if (process.env.BACKEND_WALLET_KEY) {
+            console.log("Loading wallet from BACKEND_WALLET_KEY env var...");
+            const secretKey = Uint8Array.from(JSON.parse(process.env.BACKEND_WALLET_KEY));
+            const kp = Keypair.fromSecretKey(secretKey);
+            console.log("Backend wallet loaded:", kp.publicKey.toBase58());
             return kp;
         }
-        const secretKey = Uint8Array.from(JSON.parse(fs.readFileSync(keypairPath, "utf-8")));
-        return Keypair.fromSecretKey(secretKey);
+
+        // Fallback to file
+        const keypairPath = process.env.BACKEND_WALLET || path.resolve("backend-keypair.json");
+        if (fs.existsSync(keypairPath)) {
+            console.log("Loading wallet from file:", keypairPath);
+            const secretKey = Uint8Array.from(JSON.parse(fs.readFileSync(keypairPath, "utf-8")));
+            return Keypair.fromSecretKey(secretKey);
+        }
+
+        // Generate new if nothing found
+        console.log("WARNING: Generating new backend wallet (no funds!)...");
+        const kp = Keypair.generate();
+        console.log("Generated wallet:", kp.publicKey.toBase58());
+        return kp;
     } catch (e) {
         console.error("Failed to load backend wallet:", e);
-        return Keypair.generate(); // Fallback to avoid crash, but won't be able to sign real txs if no funds
+        throw e; // Don't silently fail
     }
 }
 

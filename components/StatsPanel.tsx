@@ -103,7 +103,24 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ currentScores, isCountdown }) =
                 })
                 .transaction();
 
-            console.log("Transaction built, sending...");
+            console.log("Transaction built, simulating...");
+
+            // Get latest blockhash for simulation
+            const { blockhash } = await connection.getLatestBlockhash();
+            tx.recentBlockhash = blockhash;
+            tx.feePayer = publicKey;
+
+            // Simulate to get detailed error
+            const simulation = await connection.simulateTransaction(tx);
+            console.log("Simulation result:", simulation);
+
+            if (simulation.value.err) {
+                console.error("Simulation failed:", simulation.value.logs);
+                alert(`Simulation failed: ${simulation.value.logs?.join('\n')}`);
+                return;
+            }
+
+            console.log("Simulation OK, sending...");
 
             const sig = await sendTransaction(tx, connection);
             console.log("Transaction sent:", sig);
