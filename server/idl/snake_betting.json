@@ -1,6 +1,10 @@
 {
-    "version": "0.1.0",
-    "name": "snake_betting",
+    "address": "4Mw572DpPh5UWWx9ic4sZBtG8UJRBujJPXrE2pcwvBzw",
+    "metadata": {
+        "name": "snake_betting",
+        "version": "0.1.0",
+        "spec": "0.1.0"
+    },
     "instructions": [
         {
             "name": "initializePool",
