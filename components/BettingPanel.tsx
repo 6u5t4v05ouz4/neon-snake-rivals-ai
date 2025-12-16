@@ -199,10 +199,13 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
 
             const poolPda = new PublicKey(lastSettledPool.poolPda);
 
+            console.log("Claiming from pool:", poolPda.toBase58(), "user:", publicKey.toBase58());
+
             const tx = await program.methods.claimWinnings()
                 .accounts({
                     pool: poolPda,
                     user: publicKey,
+                    systemProgram: anchor.web3.SystemProgram.programId,
                 })
                 .transaction();
 
@@ -210,11 +213,22 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             tx.recentBlockhash = blockhash;
             tx.feePayer = publicKey;
 
+            // Simulate first for better error messages
+            const simulation = await connection.simulateTransaction(tx);
+            if (simulation.value.err) {
+                console.error("Claim simulation failed:", simulation.value.logs);
+                alert(`Claim simulation failed: ${simulation.value.logs?.join('\n')}`);
+                setIsClaiming(false);
+                return;
+            }
+
             const sig = await sendTransaction(tx, connection);
             await connection.confirmTransaction(sig, "confirmed");
 
             alert(`Winnings claimed! TX: ${sig.slice(0, 8)}...`);
             setUserBet(null); // Clear after claim
+            // Clear localStorage bet too
+            localStorage.removeItem(`bet_${lastSettledPool.poolPda}`);
 
         } catch (e: any) {
             console.error("Claim error:", e);
