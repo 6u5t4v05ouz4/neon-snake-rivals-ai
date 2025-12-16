@@ -156,7 +156,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
         reason?: string;
     } | null>(null);
 
-    // Check claim status from server when wallet is connected
+    // Check claim status from server when wallet is connected (for settled pool)
     useEffect(() => {
         if (!connected || !publicKey) return;
 
@@ -164,15 +164,38 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             const status = await checkCanClaimFromServer();
             console.log("Claim status from server:", status);
             setClaimStatus(status);
-            if (status.userBet) {
-                setUserBet(status.userBet);
-            }
+            // Don't set userBet here - that's for the settled pool, not current pool
         };
 
         checkClaim();
         const interval = setInterval(checkClaim, 5000);
         return () => clearInterval(interval);
     }, [connected, publicKey]);
+
+    // Check for bet on CURRENT pool when pool changes
+    useEffect(() => {
+        if (!connected || !publicKey || !poolInfo?.poolPda) return;
+
+        const checkCurrentPoolBet = async () => {
+            try {
+                const res = await fetch(`${SERVER_URL}/my-bets/${publicKey.toBase58()}`);
+                if (res.ok) {
+                    const bets = await res.json();
+                    // Find bet for current pool
+                    const currentBet = bets.find((b: any) => b.poolPda === poolInfo.poolPda);
+                    if (currentBet) {
+                        setUserBet({ side: currentBet.side, amount: currentBet.amount, poolPda: currentBet.poolPda });
+                    } else {
+                        setUserBet(null); // No bet on current pool, allow new bet
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to check current pool bet:", e);
+            }
+        };
+
+        checkCurrentPoolBet();
+    }, [connected, publicKey, poolInfo?.poolPda]);
 
     const placeBet = async (color: "cyan" | "magenta") => {
         if (!connected || !publicKey) {
