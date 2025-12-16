@@ -28,13 +28,14 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
         status: string | null;
         winner: string | null;
     } | null>(null);
-    const [userBet, setUserBet] = useState<{ side: string; amount: number } | null>(null);
+    const [userBet, setUserBet] = useState<{ side: string; amount: number; poolPda?: string } | null>(null);
     const [isBetting, setIsBetting] = useState(false);
 
-    // Save userBet to localStorage
+    // Save userBet to localStorage WITH poolPda
     const saveUserBet = (poolPda: string, bet: { side: string; amount: number }) => {
-        localStorage.setItem(`bet_${poolPda}`, JSON.stringify(bet));
-        setUserBet(bet);
+        const betWithPool = { ...bet, poolPda };
+        localStorage.setItem(`bet_${poolPda}`, JSON.stringify(betWithPool));
+        setUserBet(betWithPool);
     };
 
     // Load userBet from localStorage
@@ -43,6 +44,8 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
         if (saved) {
             try {
                 const bet = JSON.parse(saved);
+                // Ensure poolPda is set
+                if (!bet.poolPda) bet.poolPda = poolPda;
                 setUserBet(bet);
                 return bet;
             } catch (e) {
@@ -52,7 +55,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
         return null;
     };
 
-    // Clear userBet when pool changes
+    // Clear userBet
     const clearUserBet = () => {
         setUserBet(null);
     };
@@ -238,15 +241,18 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
         }
     };
 
-    // Check if user can claim (using last settled pool, not current pool)
+    // Check if user can claim (bet must be for the lastSettledPool, not a different pool)
     const canClaim = lastSettledPool &&
         lastSettledPool.winner &&
         userBet &&
+        userBet.poolPda === lastSettledPool.poolPda &&  // Must match the settled pool!
         userBet.side === lastSettledPool.winner;
 
     console.log("Claim check:", {
-        lastSettledPool,
+        lastSettledPoolPda: lastSettledPool?.poolPda,
+        userBetPoolPda: userBet?.poolPda,
         userBetSide: userBet?.side,
+        winner: lastSettledPool?.winner,
         canClaim
     });
 
