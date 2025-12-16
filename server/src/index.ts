@@ -147,6 +147,11 @@ app.get('/can-claim/:walletAddress', async (req, res) => {
         const { getLastSettledPool } = require('./solana');
         const lastSettled = getLastSettledPool();
 
+        console.log('Can-claim check:', {
+            walletAddress: req.params.walletAddress,
+            lastSettled
+        });
+
         if (!lastSettled || !lastSettled.poolPda) {
             return res.json({ canClaim: false, reason: 'No settled pool' });
         }
@@ -161,6 +166,8 @@ app.get('/can-claim/:walletAddress', async (req, res) => {
             }
         });
 
+        console.log('Bet found:', bet);
+
         if (!bet) {
             return res.json({ canClaim: false, reason: 'No bet on settled pool' });
         }
@@ -171,13 +178,15 @@ app.get('/can-claim/:walletAddress', async (req, res) => {
 
         const canClaim = bet.side === lastSettled.winner;
 
-        res.json({
+        const response = {
             canClaim,
             poolPda: lastSettled.poolPda,
             winner: lastSettled.winner,
             userBet: bet,
             reason: canClaim ? 'Winner!' : 'Did not bet on winner'
-        });
+        };
+        console.log('Can-claim response:', response);
+        res.json(response);
     } catch (e) {
         console.error('Error checking claim:', e);
         res.status(500).json({ error: 'Failed to check claim status' });
