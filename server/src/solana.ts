@@ -166,6 +166,13 @@ export async function settleGame(winnerColor: "cyan" | "magenta") {
     console.log(`Settling game for winner: ${winnerColor}`);
     const color = winnerColor === "cyan" ? { cyan: {} } : { magenta: {} };
 
+    // Save settled pool info FIRST (before async RPC) so claim can work immediately
+    lastSettledPool = {
+        poolPda: currentPoolPda,
+        winner: winnerColor
+    };
+    console.log("Saved last settled pool:", lastSettledPool.poolPda.toBase58(), "winner:", winnerColor);
+
     try {
         await program.methods.settleGame(color)
             .accountsPartial({
@@ -176,15 +183,9 @@ export async function settleGame(winnerColor: "cyan" | "magenta") {
             .rpc();
 
         console.log(winnerColor.toUpperCase() + " venceu! Pool settled.");
-
-        // Save settled pool info for claims
-        lastSettledPool = {
-            poolPda: currentPoolPda,
-            winner: winnerColor
-        };
-        console.log("Saved last settled pool:", lastSettledPool.poolPda.toBase58(), "winner:", winnerColor);
     } catch (err) {
         console.error("Error settling game:", err);
+        // Keep lastSettledPool even on error so users can still try to claim
     }
 }
 
