@@ -101,6 +101,107 @@ app.get('/last-settled-pool', (req, res) => {
     res.json(pool || { poolPda: null, winner: null });
 });
 
+// ===== BETTING API ENDPOINTS =====
+
+// Register a bet (called after tx confirmed on frontend)
+app.post('/register-bet', async (req, res) => {
+    try {
+        const { poolPda, walletAddress, side, amount, txSignature } = req.body;
+
+        if (!poolPda || !walletAddress || !side || !amount || !txSignature) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // Upsert - update if exists, create if not
+        const bet = await prisma.bet.upsert({
+            where: { poolPda_walletAddress: { poolPda, walletAddress } },
+            update: { side, amount, txSignature },
+            create: { poolPda, walletAddress, side, amount, txSignature }
+        });
+
+        console.log('Bet registered:', walletAddress, side, amount, 'SOL on pool', poolPda);
+        res.json({ success: true, bet });
+    } catch (e) {
+        console.error('Error registering bet:', e);
+        res.status(500).json({ error: 'Failed to register bet' });
+    }
+});
+
+// Get bets for a wallet
+app.get('/my-bets/:walletAddress', async (req, res) => {
+    try {
+        const bets = await prisma.bet.findMany({
+            where: { walletAddress: req.params.walletAddress },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(bets);
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to fetch bets' });
+    }
+});
+
+// Check if wallet can claim from last settled pool
+app.get('/can-claim/:walletAddress', async (req, res) => {
+    try {
+        const { getLastSettledPool } = require('./solana');
+        const lastSettled = getLastSettledPool();
+
+        if (!lastSettled || !lastSettled.poolPda) {
+            return res.json({ canClaim: false, reason: 'No settled pool' });
+        }
+
+        // Find bet for this wallet on the settled pool
+        const bet = await prisma.bet.findUnique({
+            where: {
+                poolPda_walletAddress: {
+                    poolPda: lastSettled.poolPda,
+                    walletAddress: req.params.walletAddress
+                }
+            }
+        });
+
+        if (!bet) {
+            return res.json({ canClaim: false, reason: 'No bet on settled pool' });
+        }
+
+        if (bet.claimed) {
+            return res.json({ canClaim: false, reason: 'Already claimed' });
+        }
+
+        const canClaim = bet.side === lastSettled.winner;
+
+        res.json({
+            canClaim,
+            poolPda: lastSettled.poolPda,
+            winner: lastSettled.winner,
+            userBet: bet,
+            reason: canClaim ? 'Winner!' : 'Did not bet on winner'
+        });
+    } catch (e) {
+        console.error('Error checking claim:', e);
+        res.status(500).json({ error: 'Failed to check claim status' });
+    }
+});
+
+// Mark bet as claimed
+app.post('/mark-claimed', async (req, res) => {
+    try {
+        const { poolPda, walletAddress } = req.body;
+
+        await prisma.bet.update({
+            where: { poolPda_walletAddress: { poolPda, walletAddress } },
+            data: { claimed: true }
+        });
+
+        console.log('Bet marked as claimed:', walletAddress, 'on pool', poolPda);
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Error marking claimed:', e);
+        res.status(500).json({ error: 'Failed to mark as claimed' });
+    }
+});
+
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {

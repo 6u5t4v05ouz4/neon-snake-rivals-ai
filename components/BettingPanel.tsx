@@ -31,34 +31,67 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
     const [userBet, setUserBet] = useState<{ side: string; amount: number; poolPda?: string } | null>(null);
     const [isBetting, setIsBetting] = useState(false);
 
-    // Save userBet to localStorage WITH poolPda
-    const saveUserBet = (poolPda: string, bet: { side: string; amount: number }) => {
-        const betWithPool = { ...bet, poolPda };
-        localStorage.setItem(`bet_${poolPda}`, JSON.stringify(betWithPool));
-        setUserBet(betWithPool);
-    };
-
-    // Load userBet from localStorage
-    const loadUserBet = (poolPda: string) => {
-        const saved = localStorage.getItem(`bet_${poolPda}`);
-        if (saved) {
-            try {
-                const bet = JSON.parse(saved);
-                // Ensure poolPda is set
-                if (!bet.poolPda) bet.poolPda = poolPda;
-                setUserBet(bet);
-                return bet;
-            } catch (e) {
-                return null;
+    // Register bet to server (replaces localStorage)
+    const registerBetToServer = async (poolPda: string, bet: { side: string; amount: number }, txSignature: string) => {
+        try {
+            const res = await fetch(`${SERVER_URL}/register-bet`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    poolPda,
+                    walletAddress: publicKey?.toBase58(),
+                    side: bet.side,
+                    amount: bet.amount,
+                    txSignature
+                })
+            });
+            if (res.ok) {
+                console.log('Bet registered on server');
+                setUserBet({ ...bet, poolPda });
             }
+        } catch (e) {
+            console.error('Failed to register bet on server:', e);
         }
-        return null;
     };
 
-    // Clear userBet
-    const clearUserBet = () => {
-        setUserBet(null);
+    // Check if user can claim from server
+    const checkCanClaimFromServer = async (): Promise<{
+        canClaim: boolean;
+        poolPda?: string;
+        winner?: string;
+        userBet?: any;
+        reason?: string;
+    }> => {
+        if (!publicKey) return { canClaim: false };
+        try {
+            const res = await fetch(`${SERVER_URL}/can-claim/${publicKey.toBase58()}`);
+            if (res.ok) {
+                return await res.json();
+            }
+        } catch (e) {
+            console.error('Failed to check claim status:', e);
+        }
+        return { canClaim: false };
     };
+
+    // Mark bet as claimed on server
+    const markClaimedOnServer = async (poolPda: string) => {
+        if (!publicKey) return;
+        try {
+            await fetch(`${SERVER_URL}/mark-claimed`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    poolPda,
+                    walletAddress: publicKey.toBase58()
+                })
+            });
+            console.log('Bet marked as claimed on server');
+        } catch (e) {
+            console.error('Failed to mark claimed:', e);
+        }
+    };
+
 
     // Fetch pool info
     const fetchPoolInfo = async () => {
@@ -107,18 +140,32 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
         return () => clearInterval(interval);
     }, [connected]);
 
-    // Load userBet from localStorage when pool changes  
+    // State for claim status from server
+    const [claimStatus, setClaimStatus] = useState<{
+        canClaim: boolean;
+        poolPda?: string;
+        winner?: string;
+        userBet?: any;
+        reason?: string;
+    } | null>(null);
+
+    // Check claim status from server when wallet is connected
     useEffect(() => {
-        if (poolInfo?.poolPda) {
-            console.log("Loading bet for pool:", poolInfo.poolPda);
-            loadUserBet(poolInfo.poolPda);
-        }
-        // Also try loading bet for last settled pool (for claims)
-        if (lastSettledPool?.poolPda && !userBet) {
-            console.log("Loading bet for settled pool:", lastSettledPool.poolPda);
-            loadUserBet(lastSettledPool.poolPda);
-        }
-    }, [poolInfo?.poolPda, lastSettledPool?.poolPda]);
+        if (!connected || !publicKey) return;
+
+        const checkClaim = async () => {
+            const status = await checkCanClaimFromServer();
+            console.log("Claim status from server:", status);
+            setClaimStatus(status);
+            if (status.userBet) {
+                setUserBet(status.userBet);
+            }
+        };
+
+        checkClaim();
+        const interval = setInterval(checkClaim, 5000);
+        return () => clearInterval(interval);
+    }, [connected, publicKey]);
 
     const placeBet = async (color: "cyan" | "magenta") => {
         if (!connected || !publicKey) {
@@ -173,9 +220,9 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             const sig = await sendTransaction(tx, connection);
             await connection.confirmTransaction(sig, "confirmed");
 
-            // Save bet to localStorage for persistence
-            saveUserBet(poolData.poolPda, { side: color, amount: betAmount });
-            console.log("Bet saved:", { side: color, amount: betAmount });
+            // Register bet on server (secure, replaces localStorage)
+            await registerBetToServer(poolData.poolPda, { side: color, amount: betAmount }, sig);
+            console.log("Bet registered:", { side: color, amount: betAmount, tx: sig });
             alert(`Bet placed on ${color.toUpperCase()}! TX: ${sig.slice(0, 8)}...`);
 
         } catch (e: any) {
@@ -189,7 +236,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
     const [isClaiming, setIsClaiming] = useState(false);
 
     const claimWinnings = async () => {
-        if (!connected || !publicKey || !anchorWallet || !lastSettledPool?.poolPda) {
+        if (!connected || !publicKey || !anchorWallet || !claimStatus?.poolPda) {
             alert("Cannot claim: missing wallet or settled pool");
             return;
         }
@@ -200,7 +247,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             anchor.setProvider(provider);
             const program = new anchor.Program(idl as unknown as anchor.Idl, provider);
 
-            const poolPda = new PublicKey(lastSettledPool.poolPda);
+            const poolPda = new PublicKey(claimStatus.poolPda);
 
             console.log("Claiming from pool:", poolPda.toBase58(), "user:", publicKey.toBase58());
 
@@ -228,10 +275,12 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             const sig = await sendTransaction(tx, connection);
             await connection.confirmTransaction(sig, "confirmed");
 
+            // Mark as claimed on server
+            await markClaimedOnServer(claimStatus.poolPda);
+
             alert(`Winnings claimed! TX: ${sig.slice(0, 8)}...`);
-            setUserBet(null); // Clear after claim
-            // Clear localStorage bet too
-            localStorage.removeItem(`bet_${lastSettledPool.poolPda}`);
+            setUserBet(null);
+            setClaimStatus(null);
 
         } catch (e: any) {
             console.error("Claim error:", e);
@@ -241,20 +290,11 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
         }
     };
 
-    // Check if user can claim (bet must be for the lastSettledPool, not a different pool)
-    const canClaim = lastSettledPool &&
-        lastSettledPool.winner &&
-        userBet &&
-        userBet.poolPda === lastSettledPool.poolPda &&  // Must match the settled pool!
-        userBet.side === lastSettledPool.winner;
 
-    console.log("Claim check:", {
-        lastSettledPoolPda: lastSettledPool?.poolPda,
-        userBetPoolPda: userBet?.poolPda,
-        userBetSide: userBet?.side,
-        winner: lastSettledPool?.winner,
-        canClaim
-    });
+    // Use server claimStatus for canClaim (secure, validated by server)
+    const canClaim = claimStatus?.canClaim || false;
+
+    console.log("Claim check from server:", claimStatus);
 
     return (
         <div className="fixed top-4 left-4 bg-slate-900/90 border border-slate-700 p-4 rounded-lg shadow-xl backdrop-blur-md z-30 w-72">
@@ -345,18 +385,18 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
                 <p className="text-center text-slate-500 text-xs">Connect wallet to bet</p>
             )}
 
-            {/* Settled Pool - Claim Winnings UI */}
-            {lastSettledPool && connected && userBet && (
+            {/* Settled Pool - Claim Winnings UI (using server claimStatus) */}
+            {claimStatus && connected && claimStatus.userBet && (
                 <div className="mt-4 p-3 bg-gradient-to-b from-amber-900/30 to-orange-900/20 rounded-lg border border-amber-500/50">
                     <h3 className="text-sm font-bold text-amber-300 mb-2 text-center">
                         🏆 GAME SETTLED
                     </h3>
-                    <div className={`text-center mb-3 p-2 rounded ${lastSettledPool.winner === 'cyan' ? 'bg-cyan-900/40' : 'bg-fuchsia-900/40'
+                    <div className={`text-center mb-3 p-2 rounded ${claimStatus.winner === 'cyan' ? 'bg-cyan-900/40' : 'bg-fuchsia-900/40'
                         }`}>
                         <div className="text-xs text-white/70">WINNER</div>
-                        <div className={`text-xl font-bold ${lastSettledPool.winner === 'cyan' ? 'text-cyan-300' : 'text-fuchsia-300'
+                        <div className={`text-xl font-bold ${claimStatus.winner === 'cyan' ? 'text-cyan-300' : 'text-fuchsia-300'
                             }`}>
-                            {lastSettledPool.winner?.toUpperCase()}
+                            {claimStatus.winner?.toUpperCase()}
                         </div>
                     </div>
 
@@ -368,11 +408,11 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
                         >
                             {isClaiming ? 'Claiming...' : '💰 CLAIM WINNINGS'}
                         </button>
-                    ) : userBet ? (
+                    ) : (
                         <div className="text-center text-slate-400 text-sm py-2">
-                            😢 Better luck next time!
+                            😢 {claimStatus.reason || 'Better luck next time!'}
                         </div>
-                    ) : null}
+                    )}
                 </div>
             )}
         </div>

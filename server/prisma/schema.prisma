@@ -24,3 +24,18 @@ model Match {
   sessionId Int?
   session   Session? @relation(fields: [sessionId], references: [id])
 }
+
+model Bet {
+  id            Int      @id @default(autoincrement())
+  poolPda       String   // Solana pool PDA
+  walletAddress String   // User's wallet public key
+  side          String   // "cyan" or "magenta"
+  amount        Float    // SOL amount
+  txSignature   String   // Solana tx signature (proof)
+  createdAt     DateTime @default(now())
+  claimed       Boolean  @default(false)
+  
+  @@unique([poolPda, walletAddress]) // One bet per wallet per pool
+  @@index([poolPda])
+  @@index([walletAddress])
+}
