@@ -56,6 +56,12 @@ try {
 let currentGameId = Date.now();
 let currentPoolPda: PublicKey | null = null;
 
+// Track last settled pool for claims
+let lastSettledPool: {
+    poolPda: PublicKey;
+    winner: string;
+} | null = null;
+
 export async function getPoolInfo() {
     if (!currentPoolPda || !program) {
         return {
@@ -170,9 +176,23 @@ export async function settleGame(winnerColor: "cyan" | "magenta") {
             .rpc();
 
         console.log(winnerColor.toUpperCase() + " venceu! Pool settled.");
-        // Don't reset pool yet - let users claim first
-        // Pool will be replaced when createNewPool is called for next game
+
+        // Save settled pool info for claims
+        lastSettledPool = {
+            poolPda: currentPoolPda,
+            winner: winnerColor
+        };
+        console.log("Saved last settled pool:", lastSettledPool.poolPda.toBase58(), "winner:", winnerColor);
     } catch (err) {
         console.error("Error settling game:", err);
     }
+}
+
+// Export function to get last settled pool for claims
+export function getLastSettledPool() {
+    if (!lastSettledPool) return null;
+    return {
+        poolPda: lastSettledPool.poolPda.toBase58(),
+        winner: lastSettledPool.winner
+    };
 }

@@ -71,12 +71,32 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
         }
     };
 
+    // State for last settled pool (for claims)
+    const [lastSettledPool, setLastSettledPool] = useState<{ poolPda: string; winner: string } | null>(null);
+
+    // Fetch last settled pool for claims
+    const fetchLastSettledPool = async () => {
+        try {
+            const res = await fetch(`${SERVER_URL}/last-settled-pool`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.poolPda) {
+                    console.log("Last settled pool:", data);
+                    setLastSettledPool(data);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to fetch last settled pool", e);
+        }
+    };
+
     useEffect(() => {
-        // Poll pool info when connected
+        // Poll pool info and last settled pool when connected
         if (!connected) return;
 
         const poll = async () => {
             await fetchPoolInfo();
+            await fetchLastSettledPool();
         };
 
         poll();
@@ -84,15 +104,18 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
         return () => clearInterval(interval);
     }, [connected]);
 
-    // Load userBet from localStorage when pool changes
+    // Load userBet from localStorage when pool changes  
     useEffect(() => {
         if (poolInfo?.poolPda) {
             console.log("Loading bet for pool:", poolInfo.poolPda);
             loadUserBet(poolInfo.poolPda);
-        } else {
-            clearUserBet();
         }
-    }, [poolInfo?.poolPda]);
+        // Also try loading bet for last settled pool (for claims)
+        if (lastSettledPool?.poolPda && !userBet) {
+            console.log("Loading bet for settled pool:", lastSettledPool.poolPda);
+            loadUserBet(lastSettledPool.poolPda);
+        }
+    }, [poolInfo?.poolPda, lastSettledPool?.poolPda]);
 
     const placeBet = async (color: "cyan" | "magenta") => {
         if (!connected || !publicKey) {
@@ -163,8 +186,8 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
     const [isClaiming, setIsClaiming] = useState(false);
 
     const claimWinnings = async () => {
-        if (!connected || !publicKey || !anchorWallet || !poolInfo?.poolPda) {
-            alert("Cannot claim: missing wallet or pool");
+        if (!connected || !publicKey || !anchorWallet || !lastSettledPool?.poolPda) {
+            alert("Cannot claim: missing wallet or settled pool");
             return;
         }
 
@@ -174,7 +197,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             anchor.setProvider(provider);
             const program = new anchor.Program(idl as unknown as anchor.Idl, provider);
 
-            const poolPda = new PublicKey(poolInfo.poolPda);
+            const poolPda = new PublicKey(lastSettledPool.poolPda);
 
             const tx = await program.methods.claimWinnings()
                 .accounts({
@@ -201,13 +224,17 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
         }
     };
 
-    // Check if user can claim (pool settled, user bet on winner)
-    const canClaim = poolInfo?.status === 'settled' &&
-        poolInfo?.winner &&
+    // Check if user can claim (using last settled pool, not current pool)
+    const canClaim = lastSettledPool &&
+        lastSettledPool.winner &&
         userBet &&
-        userBet.side === poolInfo.winner;
+        userBet.side === lastSettledPool.winner;
 
-    console.log("Claim check:", { status: poolInfo?.status, winner: poolInfo?.winner, userBetSide: userBet?.side, canClaim });
+    console.log("Claim check:", {
+        lastSettledPool,
+        userBetSide: userBet?.side,
+        canClaim
+    });
 
     return (
         <div className="fixed top-4 left-4 bg-slate-900/90 border border-slate-700 p-4 rounded-lg shadow-xl backdrop-blur-md z-30 w-72">
@@ -299,17 +326,17 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             )}
 
             {/* Settled Pool - Claim Winnings UI */}
-            {poolInfo?.status === 'settled' && connected && userBet && (
+            {lastSettledPool && connected && userBet && (
                 <div className="mt-4 p-3 bg-gradient-to-b from-amber-900/30 to-orange-900/20 rounded-lg border border-amber-500/50">
                     <h3 className="text-sm font-bold text-amber-300 mb-2 text-center">
                         🏆 GAME SETTLED
                     </h3>
-                    <div className={`text-center mb-3 p-2 rounded ${poolInfo.winner === 'cyan' ? 'bg-cyan-900/40' : 'bg-fuchsia-900/40'
+                    <div className={`text-center mb-3 p-2 rounded ${lastSettledPool.winner === 'cyan' ? 'bg-cyan-900/40' : 'bg-fuchsia-900/40'
                         }`}>
                         <div className="text-xs text-white/70">WINNER</div>
-                        <div className={`text-xl font-bold ${poolInfo.winner === 'cyan' ? 'text-cyan-300' : 'text-fuchsia-300'
+                        <div className={`text-xl font-bold ${lastSettledPool.winner === 'cyan' ? 'text-cyan-300' : 'text-fuchsia-300'
                             }`}>
-                            {poolInfo.winner?.toUpperCase()}
+                            {lastSettledPool.winner?.toUpperCase()}
                         </div>
                     </div>
 

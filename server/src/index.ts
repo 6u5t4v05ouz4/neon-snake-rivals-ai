@@ -94,6 +94,13 @@ app.get('/user-bet/:pubkey', async (req, res) => {
     }
 });
 
+// Last settled pool for claims
+app.get('/last-settled-pool', (req, res) => {
+    const { getLastSettledPool } = require('./solana');
+    const pool = getLastSettledPool();
+    res.json(pool || { poolPda: null, winner: null });
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
