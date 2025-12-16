@@ -40,6 +40,16 @@ function loadWallet(): Keypair {
 }
 
 const backendWallet = loadWallet();
+
+// House wallet for receiving 3% fee - can be different from backend wallet
+let houseWalletPubkey: PublicKey;
+if (process.env.HOUSE_WALLET_ADDRESS) {
+    houseWalletPubkey = new PublicKey(process.env.HOUSE_WALLET_ADDRESS);
+    console.log("House wallet (for 3% fee):", houseWalletPubkey.toBase58());
+} else {
+    houseWalletPubkey = backendWallet.publicKey;
+    console.log("House wallet not set, using backend wallet for 3% fee:", houseWalletPubkey.toBase58());
+}
 const provider = new anchor.AnchorProvider(connection, new anchor.Wallet(backendWallet), { commitment: "confirmed" });
 anchor.setProvider(provider);
 
@@ -149,7 +159,7 @@ export async function createNewPool() {
         await program.methods.initializePool(new BN(currentGameId))
             .accountsPartial({
                 pool: poolPda,
-                houseWallet: backendWallet.publicKey,
+                houseWallet: houseWalletPubkey,
             })
             .rpc();
 
@@ -177,7 +187,7 @@ export async function settleGame(winnerColor: "cyan" | "magenta") {
         await program.methods.settleGame(color)
             .accountsPartial({
                 pool: currentPoolPda,
-                houseWallet: backendWallet.publicKey,
+                houseWallet: houseWalletPubkey,
                 authority: backendWallet.publicKey,
             })
             .rpc();
