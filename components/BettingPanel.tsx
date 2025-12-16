@@ -34,6 +34,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
     // Register bet to server (replaces localStorage)
     const registerBetToServer = async (poolPda: string, bet: { side: string; amount: number }, txSignature: string) => {
         try {
+            console.log('Registering bet on server:', { poolPda, walletAddress: publicKey?.toBase58(), side: bet.side, amount: bet.amount, txSignature });
             const res = await fetch(`${SERVER_URL}/register-bet`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -46,11 +47,17 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
                 })
             });
             if (res.ok) {
-                console.log('Bet registered on server');
+                const data = await res.json();
+                console.log('Bet registered on server:', data);
                 setUserBet({ ...bet, poolPda });
+            } else {
+                const errText = await res.text();
+                console.error('Failed to register bet:', res.status, errText);
+                alert(`Failed to register bet on server: ${errText}`);
             }
         } catch (e) {
             console.error('Failed to register bet on server:', e);
+            alert(`Network error registering bet: ${e}`);
         }
     };
 
