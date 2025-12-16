@@ -242,13 +242,14 @@ export class GameEngine {
             if (this.gameState.nextMatchCountdown && this.gameState.nextMatchCountdown > 0) {
                 // Check if Market Maker should rebalance
                 const poolInfo = await getCurrentPoolInfo();
-                if (poolInfo.poolPda) {
-                    scheduleBalancing(
-                        poolInfo.poolPda,
-                        this.gameState.nextMatchCountdown,
-                        poolInfo
-                    );
-                }
+                console.log("Countdown tick - poolInfo:", JSON.stringify(poolInfo), "countdown:", this.gameState.nextMatchCountdown);
+
+                // Always call scheduleBalancing (it will handle null/undefined)
+                scheduleBalancing(
+                    poolInfo.poolPda || '',
+                    this.gameState.nextMatchCountdown,
+                    poolInfo
+                );
 
                 this.gameState.nextMatchCountdown--;
                 this.ioCallback(this.gameState);
