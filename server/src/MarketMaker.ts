@@ -274,3 +274,49 @@ export async function updateMakerBetResults(poolPda: string, winner: string) {
         console.error("MM: Failed to update bet results", e);
     }
 }
+
+// Auto-claim MM winnings after game settles
+export async function claimMakerWinnings(poolPdaStr: string) {
+    if (!MM_ENABLED || !mmWallet || !program || !connection) {
+        console.log("MM: Cannot claim - not initialized");
+        return;
+    }
+
+    console.log("MM: Attempting to claim winnings...");
+
+    try {
+        const poolPda = new PublicKey(poolPdaStr);
+
+        // Find user bet PDA for MM wallet
+        const [userBetPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from("bet"), poolPda.toBuffer(), mmWallet.publicKey.toBuffer()],
+            program.programId
+        );
+
+        // Create a new provider with MM wallet
+        const provider = new anchor.AnchorProvider(
+            connection,
+            new anchor.Wallet(mmWallet),
+            { commitment: "confirmed" }
+        );
+        anchor.setProvider(provider);
+        const mmProgram = new anchor.Program(idl as unknown as anchor.Idl, provider);
+
+        const txSig = await mmProgram.methods.claimWinnings()
+            .accountsPartial({
+                pool: poolPda,
+                user: mmWallet.publicKey,
+                userBet: userBetPda,
+            })
+            .rpc();
+
+        console.log(`MM: Claim successful! TX: ${txSig}`);
+    } catch (e: any) {
+        // If not winner, this will fail - that's expected
+        if (e.message?.includes("NotWinner")) {
+            console.log("MM: Did not win this side, no claim needed");
+        } else {
+            console.error("MM: Claim failed", e.message || e);
+        }
+    }
+}
