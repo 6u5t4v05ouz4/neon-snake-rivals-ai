@@ -2,7 +2,7 @@ import { GameState, Snake, GameStatus, Direction, Point } from './types';
 import { PrismaClient } from '@prisma/client';
 import { BOARD_WIDTH, BOARD_HEIGHT, SNAKE_1_START, SNAKE_2_START, MIN_SPEED, START_GAME_SPEED, SPEED_DECREMENT, WIN_SCORE, RESTART_DELAY } from './constants';
 import { getBestMove } from './aiLogic';
-import { createNewPool, settleGame, getCurrentPoolInfo } from './solana';
+import { createNewPool, settleGame, getPoolInfo, getCurrentPoolInfo } from './solana';
 import { scheduleBalancing, updateMakerBetResults } from './MarketMaker';
 
 const getRandomFreePoint = (occupiedBodies: Point[][]): Point => {
@@ -240,8 +240,8 @@ export class GameEngine {
 
         this.countdownInterval = setInterval(async () => {
             if (this.gameState.nextMatchCountdown && this.gameState.nextMatchCountdown > 0) {
-                // Check if Market Maker should rebalance
-                const poolInfo = await getCurrentPoolInfo();
+                // Check if Market Maker should rebalance - use getPoolInfo for on-chain data
+                const poolInfo = await getPoolInfo();
                 console.log("Countdown tick - poolInfo:", JSON.stringify(poolInfo), "countdown:", this.gameState.nextMatchCountdown);
 
                 // Always call scheduleBalancing (it will handle null/undefined)
