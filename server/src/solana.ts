@@ -6,7 +6,7 @@ import path from "path";
 
 // Config
 const PROGRAM_ID = new PublicKey("4Mw572DpPh5UWWx9ic4sZBtG8UJRBujJPXrE2pcwvBzw");
-const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+export const connection = new Connection("https://api.devnet.solana.com", "confirmed");
 
 // Helpers to load wallet
 function loadWallet(): Keypair {
@@ -55,7 +55,7 @@ anchor.setProvider(provider);
 
 // Load IDL
 const idlPath = path.resolve("idl/snake_betting.json");
-let program: anchor.Program;
+export let program: anchor.Program;
 try {
     const idl = JSON.parse(fs.readFileSync(idlPath, "utf8"));
     program = new anchor.Program(idl as anchor.Idl, provider);

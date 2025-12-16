@@ -2,7 +2,8 @@ import { GameState, Snake, GameStatus, Direction, Point } from './types';
 import { PrismaClient } from '@prisma/client';
 import { BOARD_WIDTH, BOARD_HEIGHT, SNAKE_1_START, SNAKE_2_START, MIN_SPEED, START_GAME_SPEED, SPEED_DECREMENT, WIN_SCORE, RESTART_DELAY } from './constants';
 import { getBestMove } from './aiLogic';
-import { createNewPool, settleGame } from './solana';
+import { createNewPool, settleGame, getCurrentPoolInfo } from './solana';
+import { scheduleBalancing, updateMakerBetResults } from './MarketMaker';
 
 const getRandomFreePoint = (occupiedBodies: Point[][]): Point => {
     while (true) {
@@ -176,8 +177,13 @@ export class GameEngine {
                 newStatus = GameStatus.GAME_OVER;
                 winner = scoreWinner.name;
                 // Solana Settle - lastSettledPool is saved synchronously before RPC
-                if (scoreWinner.colorClass === 'cyan') settleGame('cyan');
-                else if (scoreWinner.colorClass === 'fuchsia') settleGame('magenta');
+                if (scoreWinner.colorClass === 'cyan') {
+                    settleGame('cyan');
+                    updateMakerBetResults(getCurrentPoolInfo().poolPda || '', 'cyan');
+                } else if (scoreWinner.colorClass === 'fuchsia') {
+                    settleGame('magenta');
+                    updateMakerBetResults(getCurrentPoolInfo().poolPda || '', 'magenta');
+                }
             } else if (aliveSnakes.length === 0) {
                 newStatus = GameStatus.GAME_OVER;
                 // Tie breaker or Draw
@@ -187,8 +193,13 @@ export class GameEngine {
                 newStatus = GameStatus.GAME_OVER;
                 winner = aliveSnakes[0].name;
                 // Winner by elimination - lastSettledPool saved synchronously
-                if (aliveSnakes[0].colorClass === "cyan") settleGame("cyan");
-                else if (aliveSnakes[0].colorClass === "fuchsia") settleGame("magenta");
+                if (aliveSnakes[0].colorClass === "cyan") {
+                    settleGame("cyan");
+                    updateMakerBetResults(getCurrentPoolInfo().poolPda || '', 'cyan');
+                } else if (aliveSnakes[0].colorClass === "fuchsia") {
+                    settleGame("magenta");
+                    updateMakerBetResults(getCurrentPoolInfo().poolPda || '', 'magenta');
+                }
             }
 
             if (newStatus === GameStatus.GAME_OVER) {
@@ -227,8 +238,18 @@ export class GameEngine {
         // Start new betting pool
         createNewPool();
 
-        this.countdownInterval = setInterval(() => {
+        this.countdownInterval = setInterval(async () => {
             if (this.gameState.nextMatchCountdown && this.gameState.nextMatchCountdown > 0) {
+                // Check if Market Maker should rebalance
+                const poolInfo = await getCurrentPoolInfo();
+                if (poolInfo.poolPda) {
+                    scheduleBalancing(
+                        poolInfo.poolPda,
+                        this.gameState.nextMatchCountdown,
+                        poolInfo
+                    );
+                }
+
                 this.gameState.nextMatchCountdown--;
                 this.ioCallback(this.gameState);
             } else {

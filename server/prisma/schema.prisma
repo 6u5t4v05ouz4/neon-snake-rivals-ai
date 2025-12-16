@@ -39,3 +39,16 @@ model Bet {
   @@index([poolPda])
   @@index([walletAddress])
 }
+
+model MakerBet {
+  id        Int      @id @default(autoincrement())
+  poolPda   String   // Which pool
+  side      String   // "cyan" or "magenta"
+  amount    Float    // SOL amount
+  reason    String   // "rebalance" or other
+  result    String?  // "win", "lose", or null if pending
+  txSignature String?
+  createdAt DateTime @default(now())
+  
+  @@index([poolPda])
+}

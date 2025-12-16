@@ -6,11 +6,15 @@ import { GameEngine } from './GameEngine';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
-import { getCurrentPoolInfo } from './solana';
+import { getCurrentPoolInfo, connection, program } from './solana';
+import { initMarketMaker } from './MarketMaker';
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL || 'postgresql://postgres:bcmQaxDnVtZBzLnvQlwknkEuoWKkPLoG@postgres.railway.internal:5432/railway' });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
+
+// Initialize Market Maker
+initMarketMaker(connection, program, prisma as any);
 
 const app = express();
 app.use(cors({
