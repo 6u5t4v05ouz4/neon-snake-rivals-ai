@@ -71,30 +71,48 @@ function checkPoolBalance(poolInfo: any): PoolBalance {
     };
 }
 
-function shouldPlaceBet(balance: PoolBalance): { side: "cyan" | "magenta"; amount: number } | null {
-    // If pool is empty, don't bet (let users go first)
+// Hedge 60/40 Strategy: Always bet on both sides
+// 60% opposite to user majority, 40% same side
+function calculateHedgeBets(balance: PoolBalance): { cyanBet: number; magentaBet: number } | null {
+    // Total bet split between both sides (random slight variation)
+    const baseVariation = 0.9 + Math.random() * 0.2; // 0.9 to 1.1
+    const totalBetAmount = MM_MAX_BET_SOL * baseVariation;
+
+    // Determine which side has more user bets
+    let majorityPercent = 0.6; // 60% to underdog
+    let minorityPercent = 0.4; // 40% to favorite
+
+    // Add small randomization to percentages (55-65% range)
+    const randomOffset = (Math.random() - 0.5) * 0.1; // -0.05 to +0.05
+    majorityPercent += randomOffset;
+    minorityPercent -= randomOffset;
+
+    let cyanBet: number;
+    let magentaBet: number;
+
     if (balance.totalBets === 0) {
-        return null;
+        // No user bets yet - bet equally (or skip)
+        cyanBet = totalBetAmount * 0.5;
+        magentaBet = totalBetAmount * 0.5;
+    } else if (balance.cyanPercent >= balance.magentaPercent) {
+        // More bets on CYAN - bet MORE on MAGENTA (against majority)
+        magentaBet = totalBetAmount * majorityPercent;
+        cyanBet = totalBetAmount * minorityPercent;
+    } else {
+        // More bets on MAGENTA - bet MORE on CYAN (against majority)
+        cyanBet = totalBetAmount * majorityPercent;
+        magentaBet = totalBetAmount * minorityPercent;
     }
 
-    // Check if one side exceeds threshold
-    if (balance.cyanPercent > MM_BALANCE_THRESHOLD) {
-        // Too much on CYAN, bet on MAGENTA
-        const neededToBalance = (balance.cyanBets - balance.magentaBets) / 2;
-        const amount = Math.min(neededToBalance, MM_MAX_BET_SOL);
-        if (amount >= MM_MIN_BET_SOL) {
-            return { side: "magenta", amount };
-        }
-    } else if (balance.magentaPercent > MM_BALANCE_THRESHOLD) {
-        // Too much on MAGENTA, bet on CYAN
-        const neededToBalance = (balance.magentaBets - balance.cyanBets) / 2;
-        const amount = Math.min(neededToBalance, MM_MAX_BET_SOL);
-        if (amount >= MM_MIN_BET_SOL) {
-            return { side: "cyan", amount };
-        }
-    }
+    // Ensure minimum bet amounts
+    if (cyanBet < MM_MIN_BET_SOL) cyanBet = MM_MIN_BET_SOL;
+    if (magentaBet < MM_MIN_BET_SOL) magentaBet = MM_MIN_BET_SOL;
 
-    return null;
+    // Cap at max
+    if (cyanBet > MM_MAX_BET_SOL) cyanBet = MM_MAX_BET_SOL;
+    if (magentaBet > MM_MAX_BET_SOL) magentaBet = MM_MAX_BET_SOL;
+
+    return { cyanBet, magentaBet };
 }
 
 async function placeMakerBet(
@@ -171,37 +189,65 @@ export async function scheduleBalancing(
     const balance = checkPoolBalance(poolInfo);
     console.log(`MM: Cyan=${(balance.cyanPercent * 100).toFixed(1)}%, Magenta=${(balance.magentaPercent * 100).toFixed(1)}%, Total=${balance.totalBets}`);
 
-    const decision = shouldPlaceBet(balance);
-    if (!decision) {
-        console.log("MM: Pool balanced or empty, no action needed");
-        lastBetPoolPda = poolPda; // Mark as processed even if no bet
+    // Calculate hedge bets (60/40 strategy - always bet on both sides)
+    const hedgeBets = calculateHedgeBets(balance);
+    if (!hedgeBets) {
+        console.log("MM: Could not calculate hedge bets");
+        lastBetPoolPda = poolPda;
         return;
     }
 
-    console.log(`MM: Rebalancing - betting ${decision.amount.toFixed(3)} SOL on ${decision.side}`);
+    console.log(`MM: Hedge strategy - betting ${hedgeBets.cyanBet.toFixed(3)} SOL on CYAN, ${hedgeBets.magentaBet.toFixed(3)} SOL on MAGENTA`);
 
-    const txSig = await placeMakerBet(
+    // Mark as processed BEFORE placing bets
+    lastBetPoolPda = poolPda;
+
+    // Place bet on CYAN
+    const cyanTxSig = await placeMakerBet(
         new PublicKey(poolPda),
-        decision.side,
-        decision.amount
+        "cyan",
+        hedgeBets.cyanBet
+    );
+
+    // Place bet on MAGENTA
+    const magentaTxSig = await placeMakerBet(
+        new PublicKey(poolPda),
+        "magenta",
+        hedgeBets.magentaBet
     );
 
     // Record in database
     if (prisma) {
         try {
-            await prisma.makerBet.create({
-                data: {
-                    poolPda,
-                    side: decision.side,
-                    amount: decision.amount,
-                    reason: "rebalance",
-                    txSignature: txSig,
-                    result: null // Will be updated after game settles
-                }
-            });
-            console.log("MM: Bet recorded in database");
+            // Record CYAN bet
+            if (cyanTxSig) {
+                await prisma.makerBet.create({
+                    data: {
+                        poolPda,
+                        side: "cyan",
+                        amount: hedgeBets.cyanBet,
+                        reason: "hedge",
+                        txSignature: cyanTxSig,
+                        result: null
+                    }
+                });
+            }
+            // Record MAGENTA bet
+            if (magentaTxSig) {
+                await prisma.makerBet.create({
+                    data: {
+                        poolPda,
+                        side: "magenta",
+                        amount: hedgeBets.magentaBet,
+                        reason: "hedge",
+                        txSignature: magentaTxSig,
+                        result: null
+                    }
+                });
+            }
+            console.log("MM: Both bets recorded in database");
         } catch (e) {
-            console.error("MM: Failed to record bet in database", e);
+            console.error("MM: Failed to record bets in database", e);
         }
     }
 }
