@@ -207,6 +207,8 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
         userBet &&
         userBet.side === poolInfo.winner;
 
+    console.log("Claim check:", { status: poolInfo?.status, winner: poolInfo?.winner, userBetSide: userBet?.side, canClaim });
+
     return (
         <div className="fixed top-4 left-4 bg-slate-900/90 border border-slate-700 p-4 rounded-lg shadow-xl backdrop-blur-md z-30 w-72">
             {/* Wallet Connect */}
