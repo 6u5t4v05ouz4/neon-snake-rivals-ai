@@ -136,24 +136,45 @@ async function placeMakerBet(
     }
 }
 
+// Track if we already bet on current pool
+let lastBetPoolPda: string | null = null;
+
 // Called by GameEngine during countdown
 export async function scheduleBalancing(
     poolPda: string,
     countdownSecondsRemaining: number,
     poolInfo: any
 ) {
-    if (!MM_ENABLED || !mmWallet) return;
+    console.log(`MM: scheduleBalancing called - countdown=${countdownSecondsRemaining}, poolPda=${poolPda}`);
 
-    // Only act when countdown is at the configured delay
-    if (countdownSecondsRemaining !== MM_BET_DELAY_SECONDS) return;
+    if (!MM_ENABLED) {
+        console.log("MM: Not enabled (MM_ENABLED !== 'true')");
+        return;
+    }
+
+    if (!mmWallet) {
+        console.log("MM: No wallet loaded");
+        return;
+    }
+
+    // Only act when countdown is at or below the configured delay (and only once per pool)
+    if (countdownSecondsRemaining > MM_BET_DELAY_SECONDS) {
+        return; // Too early
+    }
+
+    if (lastBetPoolPda === poolPda) {
+        return; // Already bet on this pool
+    }
 
     console.log("MM: Checking pool balance...");
+    console.log("MM: poolInfo received:", JSON.stringify(poolInfo));
     const balance = checkPoolBalance(poolInfo);
-    console.log(`MM: Cyan=${(balance.cyanPercent * 100).toFixed(1)}%, Magenta=${(balance.magentaPercent * 100).toFixed(1)}%`);
+    console.log(`MM: Cyan=${(balance.cyanPercent * 100).toFixed(1)}%, Magenta=${(balance.magentaPercent * 100).toFixed(1)}%, Total=${balance.totalBets}`);
 
     const decision = shouldPlaceBet(balance);
     if (!decision) {
-        console.log("MM: Pool balanced, no action needed");
+        console.log("MM: Pool balanced or empty, no action needed");
+        lastBetPoolPda = poolPda; // Mark as processed even if no bet
         return;
     }
 
