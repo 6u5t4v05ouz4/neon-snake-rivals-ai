@@ -86,7 +86,7 @@ export class GameEngine {
         return getRandomFreePoint(bodies);
     }
 
-    private tick() {
+    private async tick() {
         try {
             if (this.gameState.status !== GameStatus.PLAYING) return;
 
@@ -175,9 +175,9 @@ export class GameEngine {
             if (scoreWinner) {
                 newStatus = GameStatus.GAME_OVER;
                 winner = scoreWinner.name;
-                // Solana Settle
-                if (scoreWinner.colorClass === 'cyan') settleGame('cyan');
-                else if (scoreWinner.colorClass === 'fuchsia') settleGame('magenta');
+                // Solana Settle - await to ensure lastSettledPool is saved
+                if (scoreWinner.colorClass === 'cyan') await settleGame('cyan');
+                else if (scoreWinner.colorClass === 'fuchsia') await settleGame('magenta');
             } else if (aliveSnakes.length === 0) {
                 newStatus = GameStatus.GAME_OVER;
                 // Tie breaker or Draw
@@ -186,9 +186,9 @@ export class GameEngine {
                 // Last man standing
                 newStatus = GameStatus.GAME_OVER;
                 winner = aliveSnakes[0].name;
-                // Winner by elimination
-                if (aliveSnakes[0].colorClass === "cyan") settleGame("cyan");
-                else if (aliveSnakes[0].colorClass === "fuchsia") settleGame("magenta");
+                // Winner by elimination - await to ensure lastSettledPool is saved
+                if (aliveSnakes[0].colorClass === "cyan") await settleGame("cyan");
+                else if (aliveSnakes[0].colorClass === "fuchsia") await settleGame("magenta");
             }
 
             if (newStatus === GameStatus.GAME_OVER) {
