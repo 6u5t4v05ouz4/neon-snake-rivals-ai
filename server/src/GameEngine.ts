@@ -4,6 +4,7 @@ import { BOARD_WIDTH, BOARD_HEIGHT, SNAKE_1_START, SNAKE_2_START, MIN_SPEED, STA
 import { getBestMove } from './aiLogic';
 import { createNewPool, settleGame, getPoolInfo, getCurrentPoolInfo } from './solana';
 import { scheduleBalancing, updateMakerBetResults, claimMakerWinnings } from './MarketMaker';
+import { updateUserBetResults } from './index';
 
 const getRandomFreePoint = (occupiedBodies: Point[][]): Point => {
     while (true) {
@@ -181,11 +182,13 @@ export class GameEngine {
                 if (scoreWinner.colorClass === 'cyan') {
                     settleGame('cyan');
                     updateMakerBetResults(poolPda, 'cyan');
+                    updateUserBetResults(poolPda, 'cyan');
                     // Auto-claim MM winnings after settle (wait 2s for tx to confirm)
                     setTimeout(() => claimMakerWinnings(poolPda), 2000);
                 } else if (scoreWinner.colorClass === 'fuchsia') {
                     settleGame('magenta');
                     updateMakerBetResults(poolPda, 'magenta');
+                    updateUserBetResults(poolPda, 'magenta');
                     setTimeout(() => claimMakerWinnings(poolPda), 2000);
                 }
             } else if (aliveSnakes.length === 0) {
@@ -201,10 +204,12 @@ export class GameEngine {
                 if (aliveSnakes[0].colorClass === "cyan") {
                     settleGame("cyan");
                     updateMakerBetResults(poolPda, 'cyan');
+                    updateUserBetResults(poolPda, 'cyan');
                     setTimeout(() => claimMakerWinnings(poolPda), 2000);
                 } else if (aliveSnakes[0].colorClass === "fuchsia") {
                     settleGame("magenta");
                     updateMakerBetResults(poolPda, 'magenta');
+                    updateUserBetResults(poolPda, 'magenta');
                     setTimeout(() => claimMakerWinnings(poolPda), 2000);
                 }
             }

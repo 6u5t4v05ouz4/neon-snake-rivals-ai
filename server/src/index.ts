@@ -13,6 +13,28 @@ const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL || 'postgr
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+// Update user bet results after game settles
+export async function updateUserBetResults(poolPda: string, winner: string) {
+    try {
+        // Find all user bets for this pool that don't have a result yet
+        const bets = await prisma.bet.findMany({
+            where: { poolPda, result: null }
+        });
+
+        for (const bet of bets) {
+            const result = bet.side === winner ? "win" : "lose";
+            await prisma.bet.update({
+                where: { id: bet.id },
+                data: { result }
+            });
+            console.log(`Updated user bet ${bet.id} (${bet.walletAddress.slice(0, 8)}...): ${result}`);
+        }
+        console.log(`Updated ${bets.length} user bet results for pool`);
+    } catch (e) {
+        console.error("Failed to update user bet results", e);
+    }
+}
+
 // Initialize Market Maker
 initMarketMaker(connection, program, prisma as any);
 
