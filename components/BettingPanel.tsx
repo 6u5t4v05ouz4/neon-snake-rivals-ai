@@ -17,7 +17,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
     const { publicKey, connected, sendTransaction } = useWallet();
     const anchorWallet = useAnchorWallet();
     const { connection } = useConnection();
-    const [betAmount, setBetAmount] = useState(0.1);
+    const [betAmount, setBetAmount] = useState(0.005);
 
     // Pool and bet state
     const [poolInfo, setPoolInfo] = useState<{
@@ -373,29 +373,59 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
                         </div>
                     ) : isCountdown ? (
                         <>
+                            {/* Quick Bet Buttons */}
+                            <div className="flex gap-1 mb-2">
+                                {[0.005, 0.01, 0.1, 1].map(amount => (
+                                    <button
+                                        key={amount}
+                                        onClick={() => setBetAmount(amount)}
+                                        disabled={isBetting}
+                                        className={`flex-1 text-xs py-1 rounded border transition-colors ${betAmount === amount
+                                            ? 'bg-indigo-600 border-indigo-400 text-white'
+                                            : 'bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700'
+                                            }`}
+                                    >
+                                        {amount}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Bet Amount Input */}
                             <div className="flex gap-2 mb-2">
                                 <input
                                     type="number"
-                                    step="0.1"
-                                    min="0.01"
+                                    step="0.005"
+                                    min="0.005"
                                     className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white text-right"
                                     value={betAmount}
-                                    onChange={e => setBetAmount(Number(e.target.value))}
+                                    onChange={e => {
+                                        const val = Number(e.target.value);
+                                        if (val >= 0.005 || e.target.value === '') {
+                                            setBetAmount(val);
+                                        }
+                                    }}
                                     disabled={isBetting}
                                 />
                                 <span className="text-slate-400 self-center">SOL</span>
                             </div>
+
+                            {/* Min Bet Notice */}
+                            <div className="text-[10px] text-slate-500 text-center mb-2">
+                                Min bet: 0.005 SOL
+                            </div>
+
+                            {/* Bet Buttons */}
                             <div className="grid grid-cols-2 gap-2">
                                 <button
                                     onClick={() => placeBet("cyan")}
-                                    disabled={isBetting}
+                                    disabled={isBetting || betAmount < 0.005}
                                     className="bg-cyan-900/80 hover:bg-cyan-700 disabled:opacity-50 text-cyan-200 text-xs py-2 px-1 rounded border border-cyan-500/30 transition-colors"
                                 >
                                     {isBetting ? '...' : 'BET CYAN'}
                                 </button>
                                 <button
                                     onClick={() => placeBet("magenta")}
-                                    disabled={isBetting}
+                                    disabled={isBetting || betAmount < 0.005}
                                     className="bg-fuchsia-900/80 hover:bg-fuchsia-700 disabled:opacity-50 text-fuchsia-200 text-xs py-2 px-1 rounded border border-fuchsia-500/30 transition-colors"
                                 >
                                     {isBetting ? '...' : 'BET MAGENTA'}
