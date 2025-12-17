@@ -43,10 +43,10 @@ const App: React.FC = () => {
             <header className="w-full max-w-6xl mb-8 flex flex-col items-center gap-6 text-center">
               <div>
                 <h1 className="text-3xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-white to-fuchsia-500 brand-font tracking-tighter">
-                  NEON SNAKE RIVALS
+                  SNAKE SOL ARENA
                 </h1>
                 <p className="text-slate-400 text-sm mt-1 font-mono">
-                  <span className="text-cyan-400">AUTONOMOUS_AI</span> // POWERED_BY_GEMINI
+                  <span className="text-cyan-400">AUTONOMOUS_AI</span> // POWERED_BY_GEMINI 3
                 </p>
               </div>
             </header>
