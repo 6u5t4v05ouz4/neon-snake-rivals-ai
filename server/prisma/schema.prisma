@@ -34,6 +34,7 @@ model Bet {
   txSignature   String   // Solana tx signature (proof)
   createdAt     DateTime @default(now())
   claimed       Boolean  @default(false)
+  result        String?  // "win" or "lose" - set after game settles
   
   @@unique([poolPda, walletAddress]) // One bet per wallet per pool
   @@index([poolPda])

@@ -6,6 +6,8 @@ import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { BN } from 'bn.js';
 import * as anchor from '@coral-xyz/anchor';
 import idl from '../src/idl/snake_betting.json';
+import ProfileStats from './ProfileStats';
+import { BarChart2 } from 'lucide-react';
 
 const PROGRAM_ID = new PublicKey("4Mw572DpPh5UWWx9ic4sZBtG8UJRBujJPXrE2pcwvBzw");
 
@@ -18,6 +20,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
     const anchorWallet = useAnchorWallet();
     const { connection } = useConnection();
     const [betAmount, setBetAmount] = useState(0.005);
+    const [showProfile, setShowProfile] = useState(false);
 
     // Pool and bet state
     const [poolInfo, setPoolInfo] = useState<{
@@ -329,8 +332,17 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
     return (
         <div className="fixed top-4 left-4 bg-slate-900/90 border border-slate-700 p-4 rounded-lg shadow-xl backdrop-blur-md z-30 w-72">
             {/* Wallet Connect */}
-            <div className="mb-4 flex justify-center">
+            <div className="mb-4 flex flex-col items-center gap-2">
                 <WalletMultiButton />
+                {connected && publicKey && (
+                    <button
+                        onClick={() => setShowProfile(true)}
+                        className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                    >
+                        <BarChart2 size={12} />
+                        MY STATS
+                    </button>
+                )}
             </div>
 
             {/* Betting Pool UI */}
@@ -474,6 +486,15 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
                         </div>
                     )}
                 </div>
+            )}
+
+            {/* Profile Stats Modal */}
+            {connected && publicKey && (
+                <ProfileStats
+                    isOpen={showProfile}
+                    onClose={() => setShowProfile(false)}
+                    walletAddress={publicKey.toBase58()}
+                />
             )}
         </div>
     );

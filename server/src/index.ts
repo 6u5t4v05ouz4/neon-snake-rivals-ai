@@ -69,6 +69,86 @@ app.get('/stats', async (req, res) => {
     }
 });
 
+// Profile statistics for a wallet
+app.get('/profile/:walletAddress', async (req, res) => {
+    try {
+        const { walletAddress } = req.params;
+
+        // Get all bets for this wallet
+        const bets = await prisma.bet.findMany({
+            where: { walletAddress },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        if (bets.length === 0) {
+            return res.json({
+                walletAddress,
+                totalBets: 0,
+                wins: 0,
+                losses: 0,
+                winRate: 0,
+                totalWagered: 0,
+                totalWon: 0,
+                netProfit: 0,
+                biggestWin: 0,
+                favoriteSide: null,
+                recentBets: []
+            });
+        }
+
+        // Calculate stats
+        const totalBets = bets.length;
+        const wins = bets.filter(b => b.result === 'win').length;
+        const losses = bets.filter(b => b.result === 'lose').length;
+        const winRate = totalBets > 0 ? (wins / totalBets) * 100 : 0;
+
+        const totalWagered = bets.reduce((sum, b) => sum + b.amount, 0);
+
+        // Estimate winnings based on claimed bets (simplified)
+        const claimedWins = bets.filter(b => b.result === 'win' && b.claimed);
+        // Approximate winnings as 1.9x the bet (97% pool / 50% avg share)
+        const totalWon = claimedWins.reduce((sum, b) => sum + (b.amount * 1.9), 0);
+
+        const netProfit = totalWon - totalWagered;
+
+        // Biggest single bet that won
+        const winningBets = bets.filter(b => b.result === 'win');
+        const biggestWin = winningBets.length > 0
+            ? Math.max(...winningBets.map(b => b.amount * 1.9))
+            : 0;
+
+        // Favorite side
+        const cyanCount = bets.filter(b => b.side === 'cyan').length;
+        const magentaCount = bets.filter(b => b.side === 'magenta').length;
+        const favoriteSide = cyanCount >= magentaCount ? 'cyan' : 'magenta';
+
+        // Recent bets (last 5)
+        const recentBets = bets.slice(0, 5).map(b => ({
+            side: b.side,
+            amount: b.amount,
+            result: b.result,
+            createdAt: b.createdAt
+        }));
+
+        res.json({
+            walletAddress,
+            totalBets,
+            wins,
+            losses,
+            winRate: winRate.toFixed(1),
+            totalWagered: totalWagered.toFixed(3),
+            totalWon: totalWon.toFixed(3),
+            netProfit: netProfit.toFixed(3),
+            biggestWin: biggestWin.toFixed(3),
+            favoriteSide,
+            recentBets
+        });
+    } catch (error) {
+        console.error('Error fetching profile:', error);
+        res.status(500).json({ error: 'Failed to fetch profile stats' });
+    }
+});
+
 // Current pool endpoint for betting (basic)
 app.get('/current-pool', (req, res) => {
     const poolInfo = getCurrentPoolInfo();
