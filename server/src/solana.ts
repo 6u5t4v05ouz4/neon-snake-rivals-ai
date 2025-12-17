@@ -99,7 +99,8 @@ export async function getPoolInfo() {
             winner: poolAccount.winner ? (poolAccount.winner.cyan ? 'cyan' : 'magenta') : null
         };
     } catch (e) {
-        console.error("Error fetching pool info:", e);
+        // Pool might not exist yet (before creation) or after settle - this is expected
+        console.log("Pool info unavailable (pool may not exist yet or was closed)");
         return {
             gameId: currentGameId,
             poolPda: currentPoolPda?.toBase58() || null,
