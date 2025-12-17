@@ -332,17 +332,8 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
     return (
         <div className="fixed top-4 left-4 bg-slate-900/90 border border-slate-700 p-4 rounded-lg shadow-xl backdrop-blur-md z-30 w-72">
             {/* Wallet Connect */}
-            <div className="mb-4 flex flex-col items-center gap-2">
+            <div className="mb-4 flex justify-center">
                 <WalletMultiButton />
-                {connected && publicKey && (
-                    <button
-                        onClick={() => setShowProfile(true)}
-                        className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                    >
-                        <BarChart2 size={12} />
-                        MY STATS
-                    </button>
-                )}
             </div>
 
             {/* Betting Pool UI */}
@@ -486,6 +477,17 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
                         </div>
                     )}
                 </div>
+            )}
+
+            {/* My Stats Button - at bottom of panel */}
+            {connected && publicKey && (
+                <button
+                    onClick={() => setShowProfile(true)}
+                    className="w-full mt-3 flex items-center justify-center gap-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs py-2 px-3 rounded-lg border border-slate-600 transition-colors"
+                >
+                    <BarChart2 size={14} />
+                    MY STATS
+                </button>
             )}
 
             {/* Profile Stats Modal */}
