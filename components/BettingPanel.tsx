@@ -6,7 +6,6 @@ import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { BN } from 'bn.js';
 import * as anchor from '@coral-xyz/anchor';
 import idl from '../src/idl/snake_betting.json';
-import ProfileStats from './ProfileStats';
 import { BarChart2 } from 'lucide-react';
 
 const PROGRAM_ID = new PublicKey("4Mw572DpPh5UWWx9ic4sZBtG8UJRBujJPXrE2pcwvBzw");
@@ -20,7 +19,16 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
     const anchorWallet = useAnchorWallet();
     const { connection } = useConnection();
     const [betAmount, setBetAmount] = useState(0.005);
-    const [showProfile, setShowProfile] = useState(false);
+
+    // Profile stats for inline display
+    const [profileStats, setProfileStats] = useState<{
+        totalBets: number;
+        wins: number;
+        losses: number;
+        winRate: string;
+        netProfit: string;
+        favoriteSide: string | null;
+    } | null>(null);
 
     // Pool and bet state
     const [poolInfo, setPoolInfo] = useState<{
@@ -53,6 +61,8 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
                 const data = await res.json();
                 console.log('Bet registered on server:', data);
                 setUserBet({ ...bet, poolPda });
+                // Refresh profile stats after betting
+                fetchProfileStats();
             } else {
                 const errText = await res.text();
                 console.error('Failed to register bet:', res.status, errText);
@@ -63,6 +73,29 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             alert(`Network error registering bet: ${e}`);
         }
     };
+
+    // Fetch profile stats
+    const fetchProfileStats = async () => {
+        if (!publicKey) return;
+        try {
+            const res = await fetch(`${SERVER_URL}/profile/${publicKey.toBase58()}`);
+            if (res.ok) {
+                const data = await res.json();
+                setProfileStats(data);
+            }
+        } catch (e) {
+            console.error('Failed to fetch profile stats:', e);
+        }
+    };
+
+    // Fetch profile stats when wallet connects
+    useEffect(() => {
+        if (connected && publicKey) {
+            fetchProfileStats();
+        } else {
+            setProfileStats(null);
+        }
+    }, [connected, publicKey]);
 
     // Check if user can claim from server
     const checkCanClaimFromServer = async (): Promise<{
@@ -479,24 +512,35 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
                 </div>
             )}
 
-            {/* My Stats Button - at bottom of panel */}
-            {connected && publicKey && (
-                <button
-                    onClick={() => setShowProfile(true)}
-                    className="w-full mt-3 flex items-center justify-center gap-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs py-2 px-3 rounded-lg border border-slate-600 transition-colors"
-                >
-                    <BarChart2 size={14} />
-                    MY STATS
-                </button>
-            )}
-
-            {/* Profile Stats Modal */}
-            {connected && publicKey && (
-                <ProfileStats
-                    isOpen={showProfile}
-                    onClose={() => setShowProfile(false)}
-                    walletAddress={publicKey.toBase58()}
-                />
+            {/* Profile Stats Panel - Always visible when connected */}
+            {connected && publicKey && profileStats && (
+                <div className="mt-3 p-3 bg-gradient-to-b from-slate-800/60 to-slate-900/60 rounded-lg border border-slate-600/50">
+                    <h3 className="text-xs font-semibold text-slate-400 mb-2 flex items-center gap-1">
+                        <BarChart2 size={12} />
+                        MY STATS
+                    </h3>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="bg-slate-800/50 p-2 rounded">
+                            <div className="text-lg font-bold text-green-400">{profileStats.winRate}%</div>
+                            <div className="text-[10px] text-slate-500">WIN RATE</div>
+                        </div>
+                        <div className="bg-slate-800/50 p-2 rounded">
+                            <div className={`text-lg font-bold ${parseFloat(profileStats.netProfit) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {parseFloat(profileStats.netProfit) >= 0 ? '+' : ''}{profileStats.netProfit}
+                            </div>
+                            <div className="text-[10px] text-slate-500">NET SOL</div>
+                        </div>
+                        <div className="bg-slate-800/50 p-2 rounded">
+                            <div className="text-lg font-bold text-indigo-400">{profileStats.totalBets}</div>
+                            <div className="text-[10px] text-slate-500">BETS</div>
+                        </div>
+                    </div>
+                    {profileStats.totalBets > 0 && (
+                        <div className="mt-2 text-[10px] text-slate-500 text-center">
+                            {profileStats.wins}W / {profileStats.losses}L • Fav: <span className={profileStats.favoriteSide === 'cyan' ? 'text-cyan-400' : 'text-fuchsia-400'}>{profileStats.favoriteSide?.toUpperCase()}</span>
+                        </div>
+                    )}
+                </div>
             )}
         </div>
     );
