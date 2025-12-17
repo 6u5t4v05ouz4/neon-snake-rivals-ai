@@ -277,12 +277,29 @@ export async function updateMakerBetResults(poolPda: string, winner: string) {
 
 // Auto-claim MM winnings after game settles
 export async function claimMakerWinnings(poolPdaStr: string) {
-    if (!MM_ENABLED || !mmWallet || !program || !connection) {
-        console.log("MM: Cannot claim - not initialized");
+    console.log(`MM: claimMakerWinnings called with poolPda: ${poolPdaStr}`);
+
+    if (!poolPdaStr || poolPdaStr === '') {
+        console.log("MM: Cannot claim - poolPda is empty");
         return;
     }
 
-    console.log("MM: Attempting to claim winnings...");
+    if (!MM_ENABLED) {
+        console.log("MM: Cannot claim - MM not enabled");
+        return;
+    }
+
+    if (!mmWallet) {
+        console.log("MM: Cannot claim - mmWallet not initialized");
+        return;
+    }
+
+    if (!program || !connection) {
+        console.log("MM: Cannot claim - program/connection not initialized");
+        return;
+    }
+
+    console.log("MM: Attempting to claim winnings for MM wallet:", mmWallet.publicKey.toBase58());
 
     try {
         const poolPda = new PublicKey(poolPdaStr);
