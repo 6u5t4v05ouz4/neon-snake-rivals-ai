@@ -11,7 +11,9 @@ const MM_MAX_BET_SOL = parseFloat(process.env.MM_MAX_BET_SOL || "0.1");
 const MM_MIN_BET_SOL = parseFloat(process.env.MM_MIN_BET_SOL || "0.01");
 const MM_BET_DELAY_SECONDS = parseInt(process.env.MM_BET_DELAY_SECONDS || "5");
 
-let mmWallet: Keypair | null = null;
+// Two wallets for hedge strategy: one for CYAN, one for MAGENTA
+let mmWalletCyan: Keypair | null = null;
+let mmWalletMagenta: Keypair | null = null;
 let program: anchor.Program | null = null;
 let connection: Connection | null = null;
 let prisma: PrismaClient | null = null;
@@ -30,20 +32,33 @@ export function initMarketMaker(
         return;
     }
 
-    // Load MM wallet from env
+    // Load MM wallet for CYAN (MM_WALLET_KEY)
     if (process.env.MM_WALLET_KEY) {
         try {
             const secretKey = Uint8Array.from(JSON.parse(process.env.MM_WALLET_KEY));
-            mmWallet = Keypair.fromSecretKey(secretKey);
-            console.log("Market Maker: ENABLED");
-            console.log("MM Wallet:", mmWallet.publicKey.toBase58());
-            console.log("MM Config: threshold=" + MM_BALANCE_THRESHOLD + ", maxBet=" + MM_MAX_BET_SOL + " SOL");
+            mmWalletCyan = Keypair.fromSecretKey(secretKey);
+            console.log("MM Wallet CYAN:", mmWalletCyan.publicKey.toBase58());
         } catch (e) {
-            console.error("Market Maker: Failed to load wallet", e);
-            mmWallet = null;
+            console.error("Market Maker: Failed to load CYAN wallet", e);
         }
+    }
+
+    // Load MM wallet for MAGENTA (MM_WALLET_KEY_2)
+    if (process.env.MM_WALLET_KEY_2) {
+        try {
+            const secretKey = Uint8Array.from(JSON.parse(process.env.MM_WALLET_KEY_2));
+            mmWalletMagenta = Keypair.fromSecretKey(secretKey);
+            console.log("MM Wallet MAGENTA:", mmWalletMagenta.publicKey.toBase58());
+        } catch (e) {
+            console.error("Market Maker: Failed to load MAGENTA wallet", e);
+        }
+    }
+
+    if (mmWalletCyan || mmWalletMagenta) {
+        console.log("Market Maker: ENABLED (Dual Wallet Mode)");
+        console.log("MM Config: threshold=" + MM_BALANCE_THRESHOLD + ", maxBet=" + MM_MAX_BET_SOL + " SOL");
     } else {
-        console.log("Market Maker: No MM_WALLET_KEY set, disabled");
+        console.log("Market Maker: No wallets loaded, disabled");
     }
 }
 
@@ -120,7 +135,15 @@ async function placeMakerBet(
     side: "cyan" | "magenta",
     amountSOL: number
 ): Promise<string | null> {
-    if (!mmWallet || !program || !connection) {
+    // Select the appropriate wallet for this side
+    const wallet = side === "cyan" ? mmWalletCyan : mmWalletMagenta;
+
+    if (!wallet) {
+        console.log(`MM: No wallet for ${side} side`);
+        return null;
+    }
+
+    if (!program || !connection) {
         console.log("MM: Not initialized");
         return null;
     }
@@ -128,12 +151,12 @@ async function placeMakerBet(
     const lamports = Math.floor(amountSOL * anchor.web3.LAMPORTS_PER_SOL);
     const color = side === "cyan" ? { cyan: {} } : { magenta: {} };
 
-    console.log(`MM: Placing ${amountSOL} SOL bet on ${side}`);
+    console.log(`MM: Placing ${amountSOL.toFixed(3)} SOL bet on ${side} using wallet ${wallet.publicKey.toBase58().slice(0, 8)}...`);
 
     try {
         const provider = new anchor.AnchorProvider(
             connection,
-            new anchor.Wallet(mmWallet),
+            new anchor.Wallet(wallet),
             { commitment: "confirmed" }
         );
         anchor.setProvider(provider);
@@ -142,14 +165,14 @@ async function placeMakerBet(
         const txSig = await mmProgram.methods.placeBet(color, new BN(lamports))
             .accountsPartial({
                 pool: poolPda,
-                user: mmWallet.publicKey,
+                user: wallet.publicKey,
             })
             .rpc();
 
-        console.log(`MM: Bet placed! TX: ${txSig}`);
+        console.log(`MM: Bet placed on ${side}! TX: ${txSig}`);
         return txSig;
     } catch (e) {
-        console.error("MM: Failed to place bet", e);
+        console.error(`MM: Failed to place bet on ${side}`, e);
         return null;
     }
 }
@@ -170,8 +193,8 @@ export async function scheduleBalancing(
         return;
     }
 
-    if (!mmWallet) {
-        console.log("MM: No wallet loaded");
+    if (!mmWalletCyan && !mmWalletMagenta) {
+        console.log("MM: No wallets loaded");
         return;
     }
 
@@ -289,31 +312,38 @@ export async function claimMakerWinnings(poolPdaStr: string) {
         return;
     }
 
-    if (!mmWallet) {
-        console.log("MM: Cannot claim - mmWallet not initialized");
-        return;
-    }
-
     if (!program || !connection) {
         console.log("MM: Cannot claim - program/connection not initialized");
         return;
     }
 
-    console.log("MM: Attempting to claim winnings for MM wallet:", mmWallet.publicKey.toBase58());
+    // Try to claim for CYAN wallet
+    if (mmWalletCyan) {
+        await claimForWallet(poolPdaStr, mmWalletCyan, "CYAN");
+    }
+
+    // Try to claim for MAGENTA wallet
+    if (mmWalletMagenta) {
+        await claimForWallet(poolPdaStr, mmWalletMagenta, "MAGENTA");
+    }
+}
+
+async function claimForWallet(poolPdaStr: string, wallet: Keypair, walletName: string) {
+    console.log(`MM: Attempting to claim for ${walletName} wallet: ${wallet.publicKey.toBase58().slice(0, 8)}...`);
 
     try {
         const poolPda = new PublicKey(poolPdaStr);
 
-        // Find user bet PDA for MM wallet
+        // Find user bet PDA for this wallet
         const [userBetPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from("bet"), poolPda.toBuffer(), mmWallet.publicKey.toBuffer()],
-            program.programId
+            [Buffer.from("bet"), poolPda.toBuffer(), wallet.publicKey.toBuffer()],
+            program!.programId
         );
 
-        // Create a new provider with MM wallet
+        // Create a new provider with this wallet
         const provider = new anchor.AnchorProvider(
-            connection,
-            new anchor.Wallet(mmWallet),
+            connection!,
+            new anchor.Wallet(wallet),
             { commitment: "confirmed" }
         );
         anchor.setProvider(provider);
@@ -322,18 +352,18 @@ export async function claimMakerWinnings(poolPdaStr: string) {
         const txSig = await mmProgram.methods.claimWinnings()
             .accountsPartial({
                 pool: poolPda,
-                user: mmWallet.publicKey,
+                user: wallet.publicKey,
                 userBet: userBetPda,
             })
             .rpc();
 
-        console.log(`MM: Claim successful! TX: ${txSig}`);
+        console.log(`MM: Claim successful for ${walletName}! TX: ${txSig}`);
     } catch (e: any) {
         // If not winner, this will fail - that's expected
         if (e.message?.includes("NotWinner")) {
-            console.log("MM: Did not win this side, no claim needed");
+            console.log(`MM: ${walletName} wallet did not win, no claim needed`);
         } else {
-            console.error("MM: Claim failed", e.message || e);
+            console.error(`MM: Claim failed for ${walletName}:`, e.message || e);
         }
     }
 }
