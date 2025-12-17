@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useSnakeGame } from './hooks/useSnakeGame';
 import SnakeBoard from './components/SnakeBoard';
 import StatsPanel from './components/StatsPanel';
 import BettingPanel from './components/BettingPanel';
-import { Zap } from 'lucide-react';
+import HowItWorks from './components/HowItWorks';
+import { HelpCircle } from 'lucide-react';
 import { GameStatus } from './types';
 
 // Solana Imports
@@ -14,6 +15,7 @@ import '@solana/wallet-adapter-react-ui/styles.css';
 
 const App: React.FC = () => {
   const { gameState, startGame, pauseGame, resetGame } = useSnakeGame();
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
 
   const togglePlay = () => {
     if (gameState.status === GameStatus.PLAYING) {
@@ -62,10 +64,13 @@ const App: React.FC = () => {
 
                 {/* Status Indicator */}
                 <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 flex flex-wrap items-center justify-center gap-6">
-                  <div className="flex items-center gap-4 bg-black/40 px-4 py-2 rounded-full border border-slate-800">
-                    <Zap size={16} className="text-yellow-400" />
-                    <span className="text-xs text-slate-400 uppercase tracking-widest pl-2">AUTONOMOUS MODE • FIRST TO 25 Wins</span>
-                  </div>
+                  <button
+                    onClick={() => setShowHowItWorks(true)}
+                    className="flex items-center gap-2 bg-indigo-900/50 hover:bg-indigo-800/60 px-4 py-2 rounded-full border border-indigo-500/50 transition-colors cursor-pointer"
+                  >
+                    <HelpCircle size={16} className="text-indigo-400" />
+                    <span className="text-xs text-indigo-300 uppercase tracking-widest font-semibold">HOW IT WORKS</span>
+                  </button>
                 </div>
               </div>
             </main>
@@ -73,6 +78,9 @@ const App: React.FC = () => {
           </div>
         </WalletModalProvider>
       </WalletProvider>
+
+      {/* How It Works Modal */}
+      <HowItWorks isOpen={showHowItWorks} onClose={() => setShowHowItWorks(false)} />
     </ConnectionProvider>
   );
 };
