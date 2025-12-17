@@ -1,5 +1,5 @@
-export const BOARD_WIDTH = 35
-export const BOARD_HEIGHT = 35
+export const BOARD_WIDTH = 25
+export const BOARD_HEIGHT = 25
 export const INITIAL_SPEED = 100; // ms per tick - Keeping for types/reference, but logic overrides
 export const START_GAME_SPEED = 200; // Start slow
 export const SPEED_DECREMENT = 5; // -5ms per point
