@@ -13,57 +13,23 @@ import { getCurrentPoolInfo, connection, program } from './solana';
 import { initMarketMaker } from './MarketMaker';
 import { registerBetSchema, markClaimedSchema } from './validation';
 
-// ===== CHAT SYSTEM =====
-interface ChatMessage {
-    id: string;
-    walletAddress: string;
-    displayName: string;
-    message: string;
-    side: 'cyan' | 'magenta';
-    timestamp: Date;
-}
+// ===== CHAT SYSTEM - Import from shared to avoid circular dependency =====
+import {
+    ChatMessage,
+    sessionChatMessages,
+    chatRateLimits,
+    CHAT_RATE_LIMIT_MS,
+    MAX_MESSAGE_LENGTH,
+    setIoInstance,
+    setActiveBattlePool,
+    clearSessionChat,
+    getActiveBattlePool,
+    emitGameSettled,
+    addChatMessage
+} from './shared';
 
-let sessionChatMessages: ChatMessage[] = [];
-const chatRateLimits: Map<string, number> = new Map(); // walletAddress -> lastMessageTime
-const CHAT_RATE_LIMIT_MS = 5000; // 5 seconds between messages
-const MAX_MESSAGE_LENGTH = 200;
-
-// Track the active battle pool (set when game starts, cleared when game ends)
-let activeBattlePoolPda: string | null = null;
-
-// Export function to set active battle pool (called when game starts)
-export function setActiveBattlePool(poolPda: string) {
-    activeBattlePoolPda = poolPda;
-    console.log('Active battle pool set:', poolPda);
-}
-
-// Export function to clear chat and active pool (called when battle ends)
-export function clearSessionChat() {
-    sessionChatMessages = [];
-    activeBattlePoolPda = null;
-    console.log('Session chat cleared, active pool reset');
-}
-
-// Export function to get active battle pool
-export function getActiveBattlePool(): string | null {
-    return activeBattlePoolPda;
-}
-
-// Global io instance for emitting events from anywhere
-let ioInstance: Server | null = null;
-
-// Set io instance (called during server startup)
-export function setIoInstance(io: Server) {
-    ioInstance = io;
-}
-
-// Emit game settled event to all clients immediately
-export function emitGameSettled(poolPda: string, winner: string) {
-    if (ioInstance) {
-        console.log('Emitting game:settled event:', { poolPda, winner });
-        ioInstance.emit('game:settled', { poolPda, winner });
-    }
-}
+// Re-export for backwards compatibility
+export { setActiveBattlePool, clearSessionChat, getActiveBattlePool, emitGameSettled, setIoInstance };
 
 // ===== DATABASE: Use env var with Railway internal fallback =====
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:bcmQaxDnVtZBzLnvQlwknkEuoWKkPLoG@postgres.railway.internal:5432/railway';
@@ -497,7 +463,8 @@ async function startServer() {
                 }
 
                 // Check if there's an active battle
-                if (!activeBattlePoolPda) {
+                const activeBattlePool = getActiveBattlePool();
+                if (!activeBattlePool) {
                     socket.emit('chat:error', { error: 'Chat only available during battle' });
                     return;
                 }
@@ -506,7 +473,7 @@ async function startServer() {
                 const bet = await prisma.bet.findUnique({
                     where: {
                         poolPda_walletAddress: {
-                            poolPda: activeBattlePoolPda,
+                            poolPda: activeBattlePool,
                             walletAddress: walletAddress
                         }
                     }
@@ -528,13 +495,8 @@ async function startServer() {
                 };
 
                 // Store message and update rate limit
-                sessionChatMessages.push(chatMessage);
+                addChatMessage(chatMessage);
                 chatRateLimits.set(walletAddress, Date.now());
-
-                // Keep only last 100 messages
-                if (sessionChatMessages.length > 100) {
-                    sessionChatMessages = sessionChatMessages.slice(-100);
-                }
 
                 // Broadcast to all clients
                 io.emit('chat:message', chatMessage);

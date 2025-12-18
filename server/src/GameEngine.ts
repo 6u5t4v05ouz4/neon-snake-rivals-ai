@@ -4,7 +4,8 @@ import { BOARD_WIDTH, BOARD_HEIGHT, SNAKE_1_START, SNAKE_2_START, MIN_SPEED, STA
 import { getBestMove } from './aiLogic';
 import { createNewPool, settleGame, getPoolInfo, getCurrentPoolInfo } from './solana';
 import { scheduleBalancing, updateMakerBetResults, claimMakerWinnings } from './MarketMaker';
-import { updateUserBetResults, clearSessionChat, setActiveBattlePool, emitGameSettled } from './index';
+import { clearSessionChat, setActiveBattlePool, emitGameSettled } from './shared';
+import { updateUserBetResults } from './index';
 
 const getRandomFreePoint = (occupiedBodies: Point[][]): Point => {
     while (true) {
