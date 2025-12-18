@@ -81,10 +81,17 @@ const AppContent: React.FC = () => {
       {/* Right Panel - Stats */}
       <StatsPanel currentScores={{ cyan: s1.score, magenta: s2.score }} />
 
-      {/* Main Content - Game Board and Chat */}
-      <main className="relative z-10 w-full max-w-6xl mx-auto flex flex-col lg:flex-row items-start justify-center gap-6 p-4">
-        {/* Game Board */}
-        <div className="w-full lg:w-2/3 flex flex-col gap-4 items-center">
+      {/* Right Panel - Chat (below Stats) */}
+      <div className="fixed top-[320px] right-4 w-72 h-[350px] z-30">
+        <ChatPanel
+          walletAddress={publicKey?.toBase58() || null}
+          userHasBet={userHasBet}
+        />
+      </div>
+
+      {/* Main Content - Game Board */}
+      <main className="relative z-10 w-full max-w-4xl mx-auto flex flex-col items-center justify-center p-4">
+        <div className="w-full flex flex-col gap-4 items-center">
           <SnakeBoard gameState={gameState} />
 
           {/* Status Indicator */}
@@ -97,14 +104,6 @@ const AppContent: React.FC = () => {
               <span className="text-xs text-indigo-300 uppercase tracking-widest font-semibold">HOW IT WORKS</span>
             </button>
           </div>
-        </div>
-
-        {/* Chat Panel */}
-        <div className="w-full lg:w-1/3 h-[400px] lg:h-[500px]">
-          <ChatPanel
-            walletAddress={publicKey?.toBase58() || null}
-            userHasBet={userHasBet}
-          />
         </div>
       </main>
 
