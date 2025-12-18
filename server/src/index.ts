@@ -13,6 +13,27 @@ import { getCurrentPoolInfo, connection, program } from './solana';
 import { initMarketMaker } from './MarketMaker';
 import { registerBetSchema, markClaimedSchema } from './validation';
 
+// ===== CHAT SYSTEM =====
+interface ChatMessage {
+    id: string;
+    walletAddress: string;
+    displayName: string;
+    message: string;
+    side: 'cyan' | 'magenta';
+    timestamp: Date;
+}
+
+let sessionChatMessages: ChatMessage[] = [];
+const chatRateLimits: Map<string, number> = new Map(); // walletAddress -> lastMessageTime
+const CHAT_RATE_LIMIT_MS = 5000; // 5 seconds between messages
+const MAX_MESSAGE_LENGTH = 200;
+
+// Export function to clear chat (called when session ends)
+export function clearSessionChat() {
+    sessionChatMessages = [];
+    console.log('Session chat cleared');
+}
+
 // ===== DATABASE: Use env var with Railway internal fallback =====
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:bcmQaxDnVtZBzLnvQlwknkEuoWKkPLoG@postgres.railway.internal:5432/railway';
 if (!process.env.DATABASE_URL) {
@@ -411,6 +432,83 @@ async function startServer() {
     io.on('connection', (socket) => {
         console.log('Client connected:', socket.id);
         socket.emit('gameState', gameEngine.gameState);
+
+        // Send chat history on connect
+        socket.emit('chat:history', sessionChatMessages);
+
+        // Handle chat message from client
+        socket.on('chat:send', async (data: { walletAddress: string; message: string }) => {
+            try {
+                const { walletAddress, message } = data;
+
+                if (!walletAddress || !message) {
+                    socket.emit('chat:error', { error: 'Missing wallet or message' });
+                    return;
+                }
+
+                // Rate limiting
+                const lastMsgTime = chatRateLimits.get(walletAddress) || 0;
+                if (Date.now() - lastMsgTime < CHAT_RATE_LIMIT_MS) {
+                    socket.emit('chat:error', { error: 'Rate limited. Wait a few seconds.' });
+                    return;
+                }
+
+                // Validate message length
+                const sanitizedMessage = message.trim().slice(0, MAX_MESSAGE_LENGTH);
+                if (sanitizedMessage.length === 0) {
+                    socket.emit('chat:error', { error: 'Message cannot be empty' });
+                    return;
+                }
+
+                // Check if user has active bet on current pool
+                const poolInfo = getCurrentPoolInfo();
+                if (!poolInfo.poolPda) {
+                    socket.emit('chat:error', { error: 'No active pool' });
+                    return;
+                }
+
+                const bet = await prisma.bet.findUnique({
+                    where: {
+                        poolPda_walletAddress: {
+                            poolPda: poolInfo.poolPda,
+                            walletAddress: walletAddress
+                        }
+                    }
+                });
+
+                if (!bet) {
+                    socket.emit('chat:error', { error: 'Must place a bet to chat' });
+                    return;
+                }
+
+                // Create chat message
+                const chatMessage: ChatMessage = {
+                    id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    walletAddress,
+                    displayName: `${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}`,
+                    message: sanitizedMessage,
+                    side: bet.side as 'cyan' | 'magenta',
+                    timestamp: new Date()
+                };
+
+                // Store message and update rate limit
+                sessionChatMessages.push(chatMessage);
+                chatRateLimits.set(walletAddress, Date.now());
+
+                // Keep only last 100 messages
+                if (sessionChatMessages.length > 100) {
+                    sessionChatMessages = sessionChatMessages.slice(-100);
+                }
+
+                // Broadcast to all clients
+                io.emit('chat:message', chatMessage);
+                console.log(`Chat [${chatMessage.displayName}]: ${sanitizedMessage}`);
+
+            } catch (error) {
+                console.error('Chat error:', error);
+                socket.emit('chat:error', { error: 'Failed to send message' });
+            }
+        });
 
         socket.on('disconnect', () => {
             console.log('Client disconnected:', socket.id);

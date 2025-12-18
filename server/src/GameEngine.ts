@@ -4,7 +4,7 @@ import { BOARD_WIDTH, BOARD_HEIGHT, SNAKE_1_START, SNAKE_2_START, MIN_SPEED, STA
 import { getBestMove } from './aiLogic';
 import { createNewPool, settleGame, getPoolInfo, getCurrentPoolInfo } from './solana';
 import { scheduleBalancing, updateMakerBetResults, claimMakerWinnings } from './MarketMaker';
-import { updateUserBetResults } from './index';
+import { updateUserBetResults, clearSessionChat } from './index';
 
 const getRandomFreePoint = (occupiedBodies: Point[][]): Point => {
     while (true) {
@@ -249,6 +249,9 @@ export class GameEngine {
 
         // Start new betting pool
         createNewPool();
+
+        // Clear chat messages from previous session
+        clearSessionChat();
 
         this.countdownInterval = setInterval(async () => {
             if (this.gameState.nextMatchCountdown && this.gameState.nextMatchCountdown > 0) {

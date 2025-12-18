@@ -44,3 +44,13 @@ export interface CommentaryMessage {
   timestamp: Date;
   type: 'play-by-play' | 'analysis' | 'shoutout';
 }
+
+// Chat de usuários que apostaram
+export interface ChatMessage {
+  id: string;
+  walletAddress: string;
+  displayName: string; // Wallet truncado: "5abc...xyz1"
+  message: string;
+  side: 'cyan' | 'magenta';
+  timestamp: Date;
+}
