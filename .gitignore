@@ -22,3 +22,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files (SECURITY)
+.env
+.env.*
+.env.local
+.env.production
+
+# Keypairs and secrets (SECURITY)
+*.pem
+*keypair*.json
+backend-keypair.json
+*.key

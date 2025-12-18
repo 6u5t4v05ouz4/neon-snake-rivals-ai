@@ -2,16 +2,50 @@ import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { z } from 'zod';
 import { GameEngine } from './GameEngine';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 import { getCurrentPoolInfo, connection, program } from './solana';
 import { initMarketMaker } from './MarketMaker';
+import { registerBetSchema, markClaimedSchema } from './validation';
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL || 'postgresql://postgres:bcmQaxDnVtZBzLnvQlwknkEuoWKkPLoG@postgres.railway.internal:5432/railway' });
+// ===== SECURITY: Require DATABASE_URL - no hardcoded fallback =====
+if (!process.env.DATABASE_URL) {
+    console.error("FATAL: DATABASE_URL environment variable is required");
+    process.exit(1);
+}
+
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
+
+// ===== SECURITY: CORS - Only allow production and localhost =====
+const ALLOWED_ORIGINS = [
+    'https://neon-snake-rivals-ai.n4r1g4.workers.dev',
+    'http://localhost:5173',
+    'http://localhost:3000'
+];
+
+// ===== SECURITY: Rate Limiting =====
+const generalLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 100, // 100 requests per minute
+    message: { error: 'Too many requests, please try again later' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const strictLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 10, // 10 requests per minute for sensitive endpoints
+    message: { error: 'Rate limit exceeded for this action' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
 // Update user bet results after game settles
 export async function updateUserBetResults(poolPda: string, winner: string) {
@@ -39,11 +73,30 @@ export async function updateUserBetResults(poolPda: string, winner: string) {
 initMarketMaker(connection, program, prisma as any);
 
 const app = express();
+
+// ===== SECURITY: Helmet for security headers =====
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin for API
+}));
+
+// ===== SECURITY: CORS with restricted origins =====
 app.use(cors({
-    origin: '*',
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl)
+        if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+            callback(null, true);
+        } else {
+            console.warn(`CORS blocked request from: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
+// Apply general rate limiting to all routes
+app.use(generalLimiter);
+
 app.use(express.json()); // Parse JSON request bodies
 
 // Current session ID (set on startup)
@@ -211,13 +264,12 @@ app.get('/last-settled-pool', (req, res) => {
 // ===== BETTING API ENDPOINTS =====
 
 // Register a bet (called after tx confirmed on frontend)
-app.post('/register-bet', async (req, res) => {
+// SECURITY: Strict rate limit + Zod validation
+app.post('/register-bet', strictLimiter, async (req, res) => {
     try {
-        const { poolPda, walletAddress, side, amount, txSignature } = req.body;
-
-        if (!poolPda || !walletAddress || !side || !amount || !txSignature) {
-            return res.status(400).json({ error: 'Missing required fields' });
-        }
+        // Validate input with Zod
+        const validated = registerBetSchema.parse(req.body);
+        const { poolPda, walletAddress, side, amount, txSignature } = validated;
 
         // Upsert - update if exists, create if not
         const bet = await prisma.bet.upsert({
@@ -226,9 +278,13 @@ app.post('/register-bet', async (req, res) => {
             create: { poolPda, walletAddress, side, amount, txSignature }
         });
 
-        console.log('Bet registered:', walletAddress, side, amount, 'SOL on pool', poolPda);
+        console.log('Bet registered:', walletAddress.slice(0, 8), side, amount, 'SOL');
         res.json({ success: true, bet });
     } catch (e) {
+        if (e instanceof z.ZodError) {
+            console.warn('Invalid bet input:', e.issues);
+            return res.status(400).json({ error: 'Invalid input', details: e.issues });
+        }
         console.error('Error registering bet:', e);
         res.status(500).json({ error: 'Failed to register bet' });
     }
@@ -300,18 +356,25 @@ app.get('/can-claim/:walletAddress', async (req, res) => {
 });
 
 // Mark bet as claimed
-app.post('/mark-claimed', async (req, res) => {
+// SECURITY: Strict rate limit + Zod validation
+app.post('/mark-claimed', strictLimiter, async (req, res) => {
     try {
-        const { poolPda, walletAddress } = req.body;
+        // Validate input with Zod
+        const validated = markClaimedSchema.parse(req.body);
+        const { poolPda, walletAddress } = validated;
 
         await prisma.bet.update({
             where: { poolPda_walletAddress: { poolPda, walletAddress } },
             data: { claimed: true }
         });
 
-        console.log('Bet marked as claimed:', walletAddress, 'on pool', poolPda);
+        console.log('Bet marked as claimed:', walletAddress.slice(0, 8));
         res.json({ success: true });
     } catch (e) {
+        if (e instanceof z.ZodError) {
+            console.warn('Invalid claim input:', e.issues);
+            return res.status(400).json({ error: 'Invalid input', details: e.issues });
+        }
         console.error('Error marking claimed:', e);
         res.status(500).json({ error: 'Failed to mark as claimed' });
     }
@@ -319,9 +382,10 @@ app.post('/mark-claimed', async (req, res) => {
 
 
 const server = http.createServer(app);
+// SECURITY: Socket.IO CORS restricted to allowed origins
 const io = new Server(server, {
     cors: {
-        origin: "*",
+        origin: ALLOWED_ORIGINS,
         methods: ["GET", "POST"]
     }
 });
