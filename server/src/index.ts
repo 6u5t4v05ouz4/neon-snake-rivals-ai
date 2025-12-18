@@ -23,12 +23,16 @@ const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-// ===== SECURITY: CORS - Only allow production and localhost =====
+// ===== SECURITY: CORS - Production origins =====
+// TODO: Restrict to specific origins after confirming working
 const ALLOWED_ORIGINS = [
     'https://neon-snake-rivals-ai.n4r1g4.workers.dev',
     'http://localhost:5173',
     'http://localhost:3000'
 ];
+
+// For debugging - temporarily allow all (set to false for production)
+const CORS_DEBUG_MODE = true;
 
 // ===== SECURITY: Rate Limiting =====
 const generalLimiter = rateLimit({
@@ -81,7 +85,7 @@ app.use(helmet({
 
 // ===== SECURITY: CORS with restricted origins =====
 app.use(cors({
-    origin: (origin, callback) => {
+    origin: CORS_DEBUG_MODE ? '*' : (origin, callback) => {
         // Allow requests with no origin (like mobile apps or curl)
         if (!origin || ALLOWED_ORIGINS.includes(origin)) {
             callback(null, true);
@@ -385,7 +389,7 @@ const server = http.createServer(app);
 // SECURITY: Socket.IO CORS restricted to allowed origins
 const io = new Server(server, {
     cors: {
-        origin: ALLOWED_ORIGINS,
+        origin: CORS_DEBUG_MODE ? "*" : ALLOWED_ORIGINS,
         methods: ["GET", "POST"]
     }
 });
