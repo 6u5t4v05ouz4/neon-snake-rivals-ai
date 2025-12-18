@@ -57,7 +57,7 @@ const CORS_DEBUG_MODE = false;
 // ===== SECURITY: Rate Limiting =====
 const generalLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
-    max: 100, // 100 requests per minute
+    max: 300, // 300 requests per minute (increased to avoid blocking critical ops)
     message: { error: 'Too many requests, please try again later' },
     standardHeaders: true,
     legacyHeaders: false,
