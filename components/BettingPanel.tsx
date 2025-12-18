@@ -381,14 +381,14 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
                         <div className="grid grid-cols-2 gap-2 mb-3 text-center">
                             <div className="bg-cyan-900/30 p-2 rounded border border-cyan-500/30">
                                 <div className="text-[10px] text-cyan-400 font-semibold">CYAN</div>
-                                <div className="text-lg font-bold text-cyan-300">{poolInfo.cyanBets.toFixed(2)} SOL</div>
+                                <div className="text-lg font-bold text-cyan-300">{poolInfo.cyanBets.toFixed(3)} SOL</div>
                                 <div className="text-[10px] text-cyan-500">
                                     {poolInfo.totalBets > 0 ? Math.round(poolInfo.cyanBets / poolInfo.totalBets * 100) : 0}%
                                 </div>
                             </div>
                             <div className="bg-fuchsia-900/30 p-2 rounded border border-fuchsia-500/30">
                                 <div className="text-[10px] text-fuchsia-400 font-semibold">MAGENTA</div>
-                                <div className="text-lg font-bold text-fuchsia-300">{poolInfo.magentaBets.toFixed(2)} SOL</div>
+                                <div className="text-lg font-bold text-fuchsia-300">{poolInfo.magentaBets.toFixed(3)} SOL</div>
                                 <div className="text-[10px] text-fuchsia-500">
                                     {poolInfo.totalBets > 0 ? Math.round(poolInfo.magentaBets / poolInfo.totalBets * 100) : 0}%
                                 </div>
