@@ -244,11 +244,11 @@ export class GameEngine {
         }
     }
 
-    private startCountdown() {
+    private async startCountdown() {
         if (this.countdownInterval) clearInterval(this.countdownInterval);
 
-        // Start new betting pool
-        createNewPool();
+        // Start new betting pool - MUST await to ensure pool exists before countdown
+        await createNewPool();
 
         // Clear chat messages from previous session
         clearSessionChat();
