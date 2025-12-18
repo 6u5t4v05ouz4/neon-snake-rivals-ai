@@ -462,21 +462,46 @@ async function startServer() {
                     return;
                 }
 
-                // Check if user has active bet on current pool
+                // Check if user has active bet on current pool OR last pool (still in session)
                 const poolInfo = getCurrentPoolInfo();
-                if (!poolInfo.poolPda) {
-                    socket.emit('chat:error', { error: 'No active pool' });
-                    return;
+                const { getLastSettledPool } = require('./solana');
+                const lastSettled = getLastSettledPool();
+
+                // Try to find bet on current pool first
+                let bet = null;
+                if (poolInfo.poolPda) {
+                    bet = await prisma.bet.findUnique({
+                        where: {
+                            poolPda_walletAddress: {
+                                poolPda: poolInfo.poolPda,
+                                walletAddress: walletAddress
+                            }
+                        }
+                    });
                 }
 
-                const bet = await prisma.bet.findUnique({
-                    where: {
-                        poolPda_walletAddress: {
-                            poolPda: poolInfo.poolPda,
-                            walletAddress: walletAddress
+                // If no bet on current pool, check for bet on last pool with pending result (still in session)
+                if (!bet && lastSettled?.poolPda) {
+                    bet = await prisma.bet.findUnique({
+                        where: {
+                            poolPda_walletAddress: {
+                                poolPda: lastSettled.poolPda,
+                                walletAddress: walletAddress
+                            }
                         }
-                    }
-                });
+                    });
+                }
+
+                // Also check for any recent bet without result (still in active session)
+                if (!bet) {
+                    bet = await prisma.bet.findFirst({
+                        where: {
+                            walletAddress: walletAddress,
+                            result: null // No result means game hasn't ended yet
+                        },
+                        orderBy: { createdAt: 'desc' }
+                    });
+                }
 
                 if (!bet) {
                     socket.emit('chat:error', { error: 'Must place a bet to chat' });

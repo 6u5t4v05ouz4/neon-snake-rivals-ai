@@ -27,7 +27,7 @@ const AppContent: React.FC = () => {
   const s2 = gameState.snakes[1];
   const isCountdown = gameState.nextMatchCountdown !== null && gameState.nextMatchCountdown > 0;
 
-  // Check if user has bet on current pool
+  // Check if user has bet on current session (active bet without result)
   useEffect(() => {
     if (!connected || !publicKey) {
       setUserHasBet(false);
@@ -36,19 +36,18 @@ const AppContent: React.FC = () => {
 
     const checkBet = async () => {
       try {
-        const poolRes = await fetch(`${SERVER_URL}/current-pool`);
-        const poolData = await poolRes.json();
-
-        if (!poolData.poolPda) {
-          setUserHasBet(false);
-          return;
-        }
-
         const betsRes = await fetch(`${SERVER_URL}/my-bets/${publicKey.toBase58()}`);
         const bets = await betsRes.json();
 
-        const currentBet = bets.find((b: any) => b.poolPda === poolData.poolPda);
-        setUserHasBet(!!currentBet);
+        // Check for any bet without a result (still in active session)
+        const activeBet = bets.find((b: any) => b.result === null);
+
+        // Also check current pool bet
+        const poolRes = await fetch(`${SERVER_URL}/current-pool`);
+        const poolData = await poolRes.json();
+        const currentBet = poolData.poolPda ? bets.find((b: any) => b.poolPda === poolData.poolPda) : null;
+
+        setUserHasBet(!!activeBet || !!currentBet);
       } catch (e) {
         console.error('Error checking bet:', e);
         setUserHasBet(false);
