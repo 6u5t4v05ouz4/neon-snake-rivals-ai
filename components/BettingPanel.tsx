@@ -7,6 +7,7 @@ import { BN } from 'bn.js';
 import * as anchor from '@coral-xyz/anchor';
 import idl from '../src/idl/snake_betting.json';
 import { BarChart2 } from 'lucide-react';
+import { io } from 'socket.io-client';
 
 const PROGRAM_ID = new PublicKey("4Mw572DpPh5UWWx9ic4sZBtG8UJRBujJPXrE2pcwvBzw");
 
@@ -206,6 +207,31 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
         checkClaim();
         const interval = setInterval(checkClaim, 2000);
         return () => clearInterval(interval);
+    }, [connected, publicKey]);
+
+    // Listen for instant game:settled Socket.IO event
+    useEffect(() => {
+        if (!connected || !publicKey) return;
+
+        const socket = io(SERVER_URL);
+
+        socket.on('game:settled', async (data: { poolPda: string; winner: string }) => {
+            console.log('Received game:settled event:', data);
+
+            // Update last settled pool immediately
+            setLastSettledPool({ poolPda: data.poolPda, winner: data.winner });
+
+            // Immediately check claim status
+            const status = await checkCanClaimFromServer();
+            setClaimStatus(status);
+
+            // Also refresh pool info
+            await fetchPoolInfo();
+        });
+
+        return () => {
+            socket.disconnect();
+        };
     }, [connected, publicKey]);
 
     // Check for bet on CURRENT pool when pool changes

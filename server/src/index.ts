@@ -49,6 +49,22 @@ export function getActiveBattlePool(): string | null {
     return activeBattlePoolPda;
 }
 
+// Global io instance for emitting events from anywhere
+let ioInstance: Server | null = null;
+
+// Set io instance (called during server startup)
+export function setIoInstance(io: Server) {
+    ioInstance = io;
+}
+
+// Emit game settled event to all clients immediately
+export function emitGameSettled(poolPda: string, winner: string) {
+    if (ioInstance) {
+        console.log('Emitting game:settled event:', { poolPda, winner });
+        ioInstance.emit('game:settled', { poolPda, winner });
+    }
+}
+
 // ===== DATABASE: Use env var with Railway internal fallback =====
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:bcmQaxDnVtZBzLnvQlwknkEuoWKkPLoG@postgres.railway.internal:5432/railway';
 if (!process.env.DATABASE_URL) {
@@ -431,6 +447,9 @@ const io = new Server(server, {
         methods: ["GET", "POST"]
     }
 });
+
+// Set global io instance for emitting events from GameEngine
+setIoInstance(io);
 
 const PORT = process.env.PORT || 3001;
 
