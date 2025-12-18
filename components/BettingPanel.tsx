@@ -179,7 +179,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
         };
 
         poll();
-        const interval = setInterval(poll, 3000);
+        const interval = setInterval(poll, 2000);
         return () => clearInterval(interval);
     }, [connected]);
 
@@ -204,7 +204,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
         };
 
         checkClaim();
-        const interval = setInterval(checkClaim, 5000);
+        const interval = setInterval(checkClaim, 2000);
         return () => clearInterval(interval);
     }, [connected, publicKey]);
 
