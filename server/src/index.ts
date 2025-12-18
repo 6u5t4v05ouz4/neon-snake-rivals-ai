@@ -48,6 +48,8 @@ const prisma = new PrismaClient({ adapter });
 // TODO: Restrict to specific origins after confirming working
 const ALLOWED_ORIGINS = [
     'https://neon-snake-rivals-ai.n4r1g4.workers.dev',
+    'https://snakearena.fun',
+    'https://www.snakearena.fun',
     'http://localhost:5173',
     'http://localhost:3000'
 ];
