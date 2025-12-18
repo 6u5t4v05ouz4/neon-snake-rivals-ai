@@ -404,7 +404,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
                             }`}>
                             <div className="text-xs text-white/70">YOUR BET</div>
                             <div className={`text-lg font-bold ${userBet.side === 'cyan' ? 'text-cyan-300' : 'text-fuchsia-300'}`}>
-                                {userBet.amount.toFixed(2)} SOL on {userBet.side.toUpperCase()} ✓
+                                {userBet.amount.toFixed(3)} SOL on {userBet.side.toUpperCase()} ✓
                             </div>
                         </div>
                     ) : isCountdown ? (
