@@ -144,30 +144,38 @@ export function getCurrentPoolInfo() {
 }
 
 export async function createNewPool() {
-    if (!program) return;
-    currentGameId = Date.now();
-    console.log(`Creating new pool for Game ID: ${currentGameId}`);
+    if (!program) {
+        console.error("Program not loaded, cannot create pool");
+        return null;
+    }
+
+    const newGameId = Date.now();
+    console.log(`Creating new pool for Game ID: ${newGameId}`);
 
     try {
         const [poolPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from("pool"), new BN(currentGameId).toArrayLike(Buffer, "le", 8)],
+            [Buffer.from("pool"), new BN(newGameId).toArrayLike(Buffer, "le", 8)],
             program.programId
         );
-        currentPoolPda = poolPda;
 
-        // In a real scenario, you'd confirm this transaction logic matches your smart contract exactly.
-        // This matches the user's provided snippet.
-        await program.methods.initializePool(new BN(currentGameId))
+        // Execute RPC first - only set currentPoolPda if successful
+        await program.methods.initializePool(new BN(newGameId))
             .accountsPartial({
                 pool: poolPda,
                 houseWallet: houseWalletPubkey,
             })
             .rpc();
 
-        console.log("Novo pool criado! Game ID:", currentGameId);
+        // Only update state AFTER successful transaction
+        currentGameId = newGameId;
+        currentPoolPda = poolPda;
+
+        console.log("Novo pool criado! Game ID:", currentGameId, "Pool:", poolPda.toBase58());
         return { gameId: currentGameId, poolPda: poolPda.toBase58() };
     } catch (err) {
         console.error("Error creating pool:", err);
+        // Don't update currentPoolPda on error - keep the old one or null
+        return null;
     }
 }
 
