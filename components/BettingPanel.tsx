@@ -45,7 +45,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
     // Register bet to server (replaces localStorage)
     const registerBetToServer = async (poolPda: string, bet: { side: string; amount: number }, txSignature: string) => {
         try {
-            console.log('Registering bet on server:', { poolPda, walletAddress: publicKey?.toBase58(), side: bet.side, amount: bet.amount, txSignature });
+
             const res = await fetch(`${SERVER_URL}/register-bet`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -59,7 +59,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             });
             if (res.ok) {
                 const data = await res.json();
-                console.log('Bet registered on server:', data);
+
                 setUserBet({ ...bet, poolPda });
                 // Refresh profile stats after betting
                 fetchProfileStats();
@@ -129,7 +129,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
                     walletAddress: publicKey.toBase58()
                 })
             });
-            console.log('Bet marked as claimed on server');
+
         } catch (e) {
             console.error('Failed to mark claimed:', e);
         }
@@ -142,7 +142,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             const res = await fetch(`${SERVER_URL}/pool-info`);
             if (res.ok) {
                 const data = await res.json();
-                console.log("Pool info:", data);
+
                 setPoolInfo(data);
             }
         } catch (e) {
@@ -160,7 +160,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             if (res.ok) {
                 const data = await res.json();
                 if (data.poolPda) {
-                    console.log("Last settled pool:", data);
+
                     setLastSettledPool(data);
                 }
             }
@@ -198,7 +198,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
 
         const checkClaim = async () => {
             const status = await checkCanClaimFromServer();
-            console.log("Claim status from server:", status);
+
             setClaimStatus(status);
             // Don't set userBet here - that's for the settled pool, not current pool
         };
@@ -288,7 +288,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
 
             // Register bet on server (secure, replaces localStorage)
             await registerBetToServer(poolData.poolPda, { side: color, amount: betAmount }, sig);
-            console.log("Bet registered:", { side: color, amount: betAmount, tx: sig });
+
             alert(`Bet placed on ${color.toUpperCase()}! TX: ${sig.slice(0, 8)}...`);
 
         } catch (e: any) {
@@ -315,7 +315,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
 
             const poolPda = new PublicKey(claimStatus.poolPda);
 
-            console.log("Claiming from pool:", poolPda.toBase58(), "user:", publicKey.toBase58());
+
 
             const tx = await program.methods.claimWinnings()
                 .accounts({
@@ -360,7 +360,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
     // Use server claimStatus for canClaim (secure, validated by server)
     const canClaim = claimStatus?.canClaim || false;
 
-    console.log("Claim check from server:", claimStatus);
+
 
     return (
         <div className="fixed top-4 left-4 bg-slate-900/90 border border-slate-700 p-4 rounded-lg shadow-xl backdrop-blur-md z-30 w-72">

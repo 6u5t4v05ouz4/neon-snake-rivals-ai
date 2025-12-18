@@ -31,8 +31,8 @@ const ALLOWED_ORIGINS = [
     'http://localhost:3000'
 ];
 
-// For debugging - temporarily allow all (set to false for production)
-const CORS_DEBUG_MODE = true;
+// For debugging - set to false for production
+const CORS_DEBUG_MODE = false;
 
 // ===== SECURITY: Rate Limiting =====
 const generalLimiter = rateLimit({
