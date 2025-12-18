@@ -82,7 +82,7 @@ const AppContent: React.FC = () => {
       <StatsPanel currentScores={{ cyan: s1.score, magenta: s2.score }} />
 
       {/* Right Panel - Chat (below Stats) */}
-      <div className="fixed top-[320px] right-4 w-72 h-[350px] z-30">
+      <div className="fixed top-[380px] right-4 w-72 h-[320px] z-30">
         <ChatPanel
           walletAddress={publicKey?.toBase58() || null}
           userHasBet={userHasBet}
