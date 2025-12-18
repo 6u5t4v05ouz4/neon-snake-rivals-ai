@@ -28,10 +28,25 @@ const chatRateLimits: Map<string, number> = new Map(); // walletAddress -> lastM
 const CHAT_RATE_LIMIT_MS = 5000; // 5 seconds between messages
 const MAX_MESSAGE_LENGTH = 200;
 
-// Export function to clear chat (called when session ends)
+// Track the active battle pool (set when game starts, cleared when game ends)
+let activeBattlePoolPda: string | null = null;
+
+// Export function to set active battle pool (called when game starts)
+export function setActiveBattlePool(poolPda: string) {
+    activeBattlePoolPda = poolPda;
+    console.log('Active battle pool set:', poolPda);
+}
+
+// Export function to clear chat and active pool (called when battle ends)
 export function clearSessionChat() {
     sessionChatMessages = [];
-    console.log('Session chat cleared');
+    activeBattlePoolPda = null;
+    console.log('Session chat cleared, active pool reset');
+}
+
+// Export function to get active battle pool
+export function getActiveBattlePool(): string | null {
+    return activeBattlePoolPda;
 }
 
 // ===== DATABASE: Use env var with Railway internal fallback =====
@@ -462,15 +477,20 @@ async function startServer() {
                     return;
                 }
 
-                // Check if user has a recent bet (within last 2 hours = covers session duration)
-                const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+                // Check if there's an active battle
+                if (!activeBattlePoolPda) {
+                    socket.emit('chat:error', { error: 'Chat only available during battle' });
+                    return;
+                }
 
-                const bet = await prisma.bet.findFirst({
+                // Check if user has bet on the active battle pool
+                const bet = await prisma.bet.findUnique({
                     where: {
-                        walletAddress: walletAddress,
-                        createdAt: { gte: twoHoursAgo }
-                    },
-                    orderBy: { createdAt: 'desc' }
+                        poolPda_walletAddress: {
+                            poolPda: activeBattlePoolPda,
+                            walletAddress: walletAddress
+                        }
+                    }
                 });
 
                 if (!bet) {

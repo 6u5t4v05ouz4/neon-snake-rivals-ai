@@ -4,7 +4,7 @@ import { BOARD_WIDTH, BOARD_HEIGHT, SNAKE_1_START, SNAKE_2_START, MIN_SPEED, STA
 import { getBestMove } from './aiLogic';
 import { createNewPool, settleGame, getPoolInfo, getCurrentPoolInfo } from './solana';
 import { scheduleBalancing, updateMakerBetResults, claimMakerWinnings } from './MarketMaker';
-import { updateUserBetResults, clearSessionChat } from './index';
+import { updateUserBetResults, clearSessionChat, setActiveBattlePool } from './index';
 
 const getRandomFreePoint = (occupiedBodies: Point[][]): Point => {
     while (true) {
@@ -217,6 +217,9 @@ export class GameEngine {
             if (newStatus === GameStatus.GAME_OVER) {
                 this.gameState.nextMatchCountdown = RESTART_DELAY;
 
+                // Clear chat when battle ends
+                clearSessionChat();
+
                 // Save Match Result and update session
                 this.saveMatchResult(winner, Math.floor(this.gameState.tick * 0.016));
 
@@ -250,8 +253,7 @@ export class GameEngine {
         // Start new betting pool - MUST await to ensure pool exists before countdown
         await createNewPool();
 
-        // Clear chat messages from previous session
-        clearSessionChat();
+        // Note: Chat is NOT available during countdown, only during battle
 
         this.countdownInterval = setInterval(async () => {
             if (this.gameState.nextMatchCountdown && this.gameState.nextMatchCountdown > 0) {
@@ -278,6 +280,13 @@ export class GameEngine {
         if (this.countdownInterval) clearInterval(this.countdownInterval);
         this.countdownInterval = null;
         this.gameState = createInitialState();
+
+        // Set active battle pool when game starts (chat becomes available)
+        const poolInfo = getCurrentPoolInfo();
+        if (poolInfo.poolPda) {
+            setActiveBattlePool(poolInfo.poolPda);
+        }
+
         this.ioCallback(this.gameState);
     }
 

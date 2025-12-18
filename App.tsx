@@ -27,8 +27,10 @@ const AppContent: React.FC = () => {
   const s2 = gameState.snakes[1];
   const isCountdown = gameState.nextMatchCountdown !== null && gameState.nextMatchCountdown > 0;
 
-  // Check if user has bet in current session
-  // Once user bets, chat stays active until session resets
+  // Check if user has bet on current pool AND battle is active
+  // Chat only available during battle (not during countdown)
+  const isBattleActive = gameState.status === GameStatus.PLAYING;
+
   useEffect(() => {
     if (!connected || !publicKey) {
       setUserHasBet(false);
@@ -37,43 +39,33 @@ const AppContent: React.FC = () => {
 
     const checkBet = async () => {
       try {
-        const betsRes = await fetch(`${SERVER_URL}/my-bets/${publicKey.toBase58()}`);
-        const bets = await betsRes.json();
+        // Get current pool
+        const poolRes = await fetch(`${SERVER_URL}/current-pool`);
+        const poolData = await poolRes.json();
 
-        if (bets.length === 0) {
+        if (!poolData.poolPda) {
           setUserHasBet(false);
           return;
         }
 
-        // Get the most recent bet
-        const latestBet = bets[0]; // Already ordered by createdAt desc
-        const betTime = new Date(latestBet.createdAt).getTime();
-        const now = Date.now();
-        const twoHoursAgo = now - (2 * 60 * 60 * 1000);
+        // Check if user has bet on this pool
+        const betsRes = await fetch(`${SERVER_URL}/my-bets/${publicKey.toBase58()}`);
+        const bets = await betsRes.json();
 
-        // If user has a bet from the last 2 hours, allow chat
-        // This covers the entire session duration
-        if (betTime > twoHoursAgo) {
-          setUserHasBet(true);
-          return;
-        }
-
-        // Fallback: check current pool
-        const poolRes = await fetch(`${SERVER_URL}/current-pool`);
-        const poolData = await poolRes.json();
-        const currentBet = poolData.poolPda ? bets.find((b: any) => b.poolPda === poolData.poolPda) : null;
-
+        const currentBet = bets.find((b: any) => b.poolPda === poolData.poolPda);
         setUserHasBet(!!currentBet);
       } catch (e) {
         console.error('Error checking bet:', e);
-        // Don't reset to false on error - keep current state
       }
     };
 
     checkBet();
-    const interval = setInterval(checkBet, 5000);
+    const interval = setInterval(checkBet, 3000);
     return () => clearInterval(interval);
   }, [connected, publicKey]);
+
+  // Chat is enabled only during battle AND if user has bet
+  const canAccessChat = isBattleActive && userHasBet;
 
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-8 flex flex-col items-center">
@@ -100,7 +92,7 @@ const AppContent: React.FC = () => {
       <div className="fixed top-[380px] right-4 w-72 h-[320px] z-30">
         <ChatPanel
           walletAddress={publicKey?.toBase58() || null}
-          userHasBet={userHasBet}
+          userHasBet={canAccessChat}
         />
       </div>
 
