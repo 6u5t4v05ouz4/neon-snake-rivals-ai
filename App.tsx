@@ -77,7 +77,7 @@ const AppContent: React.FC = () => {
             SNAKE SOL ARENA
           </h1>
           <p className="text-slate-400 text-sm mt-1 font-mono">
-            <span className="text-cyan-400">AUTONOMOUS_AI</span> // POWERED_BY_GEMINI 3
+            <span className="text-cyan-400">AUTONOMOUS_AI // POWERED_BY_GEMINI 3 // LIVE ON DEVNET</span>
           </p>
         </div>
       </header>
