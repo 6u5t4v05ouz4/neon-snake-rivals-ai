@@ -13,13 +13,13 @@ import { getCurrentPoolInfo, connection, program } from './solana';
 import { initMarketMaker } from './MarketMaker';
 import { registerBetSchema, markClaimedSchema } from './validation';
 
-// ===== SECURITY: Require DATABASE_URL - no hardcoded fallback =====
+// ===== DATABASE: Use env var with Railway internal fallback =====
+const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:bcmQaxDnVtZBzLnvQlwknkEuoWKkPLoG@postgres.railway.internal:5432/railway';
 if (!process.env.DATABASE_URL) {
-    console.error("FATAL: DATABASE_URL environment variable is required");
-    process.exit(1);
+    console.warn("WARNING: DATABASE_URL not set, using Railway internal fallback");
 }
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new pg.Pool({ connectionString: DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
