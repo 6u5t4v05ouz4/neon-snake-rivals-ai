@@ -1,10 +1,11 @@
 import { defineConfig } from 'prisma/config';
 
-// Note: DATABASE_URL is validated at runtime in index.ts
-// Empty string fallback allows local builds without env var
+// Use Railway internal URL as fallback for build/runtime
+const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:bcmQaxDnVtZBzLnvQlwknkEuoWKkPLoG@postgres.railway.internal:5432/railway';
+
 export default defineConfig({
     schema: 'prisma/schema.prisma',
     datasource: {
-        url: process.env.DATABASE_URL || '',
+        url: DATABASE_URL,
     },
 });
