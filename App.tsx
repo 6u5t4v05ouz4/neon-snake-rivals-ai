@@ -4,6 +4,7 @@ import SnakeBoard from './components/SnakeBoard';
 import StatsPanel from './components/StatsPanel';
 import BettingPanel from './components/BettingPanel';
 import ChatPanel from './components/ChatPanel';
+import LeaderboardPanel from './components/LeaderboardPanel';
 import HowItWorks from './components/HowItWorks';
 import { HelpCircle } from 'lucide-react';
 import { GameStatus } from './types';
@@ -84,6 +85,11 @@ const AppContent: React.FC = () => {
 
       {/* Left Panel - Betting */}
       <BettingPanel isCountdown={isCountdown} />
+
+      {/* Left Panel - Leaderboard (below Betting) */}
+      <div className="fixed bottom-4 left-4 w-72 z-30">
+        <LeaderboardPanel currentWallet={publicKey?.toBase58() || null} />
+      </div>
 
       {/* Right Panel - Stats */}
       <StatsPanel currentScores={{ cyan: s1.score, magenta: s2.score }} />

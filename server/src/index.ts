@@ -168,6 +168,63 @@ app.get('/stats', async (req, res) => {
     }
 });
 
+// Leaderboard - Top 10 bettors by net profit
+app.get('/leaderboard', async (req, res) => {
+    try {
+        // Get all bets with results
+        const bets = await prisma.bet.findMany({
+            where: { result: { not: null } },
+            select: {
+                walletAddress: true,
+                amount: true,
+                result: true,
+            }
+        });
+
+        // Aggregate stats per wallet
+        const walletStats: Map<string, { wins: number; losses: number; totalBets: number; wagered: number; profit: number }> = new Map();
+
+        for (const bet of bets) {
+            const stats = walletStats.get(bet.walletAddress) || { wins: 0, losses: 0, totalBets: 0, wagered: 0, profit: 0 };
+
+            stats.totalBets++;
+            stats.wagered += bet.amount;
+
+            if (bet.result === 'win') {
+                stats.wins++;
+                // Estimate winnings as ~1.9x (97% pool / average share)
+                stats.profit += bet.amount * 0.9; // Net gain
+            } else {
+                stats.losses++;
+                stats.profit -= bet.amount; // Net loss
+            }
+
+            walletStats.set(bet.walletAddress, stats);
+        }
+
+        // Convert to array and sort by profit
+        const leaderboard = Array.from(walletStats.entries())
+            .map(([wallet, stats]) => ({
+                wallet,
+                displayName: `${wallet.slice(0, 4)}...${wallet.slice(-4)}`,
+                wins: stats.wins,
+                losses: stats.losses,
+                totalBets: stats.totalBets,
+                winRate: stats.totalBets > 0 ? Math.round((stats.wins / stats.totalBets) * 100) : 0,
+                wagered: Math.round(stats.wagered * 1000) / 1000,
+                profit: Math.round(stats.profit * 1000) / 1000,
+            }))
+            .sort((a, b) => b.profit - a.profit)
+            .slice(0, 10)
+            .map((entry, index) => ({ ...entry, rank: index + 1 }));
+
+        res.json(leaderboard);
+    } catch (error) {
+        console.error('Leaderboard error:', error);
+        res.status(500).json({ error: 'Failed to fetch leaderboard' });
+    }
+});
+
 // Profile statistics for a wallet
 app.get('/profile/:walletAddress', async (req, res) => {
     try {
