@@ -6,7 +6,7 @@ import BettingPanel from './components/BettingPanel';
 import ChatPanel from './components/ChatPanel';
 import LeaderboardPanel from './components/LeaderboardPanel';
 import HowItWorks from './components/HowItWorks';
-import { HelpCircle } from 'lucide-react';
+import { HelpCircle, Volume2, VolumeX } from 'lucide-react';
 import { GameStatus } from './types';
 import { SERVER_URL } from './constants';
 
@@ -16,6 +16,7 @@ import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
 import { useWallet } from '@solana/wallet-adapter-react';
 import '@solana/wallet-adapter-react-ui/styles.css';
+import { useSoundEffects } from './hooks/useSoundEffects';
 
 // Inner component to use wallet hooks
 const AppContent: React.FC = () => {
@@ -23,6 +24,7 @@ const AppContent: React.FC = () => {
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const { publicKey, connected } = useWallet();
   const [userHasBet, setUserHasBet] = useState(false);
+  const { play, enabled: soundEnabled, toggle: toggleSound } = useSoundEffects();
 
   const s1 = gameState.snakes[0];
   const s2 = gameState.snakes[1];
@@ -68,11 +70,60 @@ const AppContent: React.FC = () => {
   // Chat is enabled only during battle AND if user has bet
   const canAccessChat = isBattleActive && userHasBet;
 
+  // Track previous state for sound triggers
+  const prevScores = React.useRef({ cyan: 0, magenta: 0 });
+  const prevStatus = React.useRef<string>(gameState.status);
+  const prevCountdown = React.useRef<number | null>(null);
+
+  // Sound effects based on game state changes
+  useEffect(() => {
+    // Score increase = eat sound
+    if (s1.score > prevScores.current.cyan || s2.score > prevScores.current.magenta) {
+      play('eat');
+    }
+    prevScores.current = { cyan: s1.score, magenta: s2.score };
+  }, [s1.score, s2.score, play]);
+
+  useEffect(() => {
+    // Game status changes
+    if (prevStatus.current !== gameState.status) {
+      if (gameState.status === GameStatus.PLAYING && prevStatus.current !== GameStatus.PLAYING) {
+        play('go');
+      } else if (gameState.status === GameStatus.GAME_OVER) {
+        play('gameover');
+      }
+      prevStatus.current = gameState.status;
+    }
+  }, [gameState.status, play]);
+
+  useEffect(() => {
+    // Countdown tick sound (only last 3 seconds)
+    if (gameState.nextMatchCountdown !== null &&
+      gameState.nextMatchCountdown <= 3 &&
+      gameState.nextMatchCountdown !== prevCountdown.current) {
+      play('countdown');
+    }
+    prevCountdown.current = gameState.nextMatchCountdown;
+  }, [gameState.nextMatchCountdown, play]);
+
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-8 flex flex-col items-center">
 
       {/* Header */}
       <header className="w-full max-w-6xl mb-8 flex flex-col items-center gap-6 text-center">
+        {/* Sound Toggle - Top Right */}
+        <button
+          onClick={toggleSound}
+          className="fixed top-4 right-[340px] z-40 p-2 bg-slate-800/80 hover:bg-slate-700 rounded-full border border-slate-600 transition-colors"
+          title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+        >
+          {soundEnabled ? (
+            <Volume2 size={20} className="text-green-400" />
+          ) : (
+            <VolumeX size={20} className="text-slate-500" />
+          )}
+        </button>
+
         <div>
           <h1 className="text-3xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-white to-fuchsia-500 brand-font tracking-tighter">
             SNAKE SOL ARENA

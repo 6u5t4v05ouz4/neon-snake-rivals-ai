@@ -8,6 +8,7 @@ import * as anchor from '@coral-xyz/anchor';
 import idl from '../src/idl/snake_betting.json';
 import { BarChart2 } from 'lucide-react';
 import { io } from 'socket.io-client';
+import { useSoundEffects } from '../hooks/useSoundEffects';
 
 const PROGRAM_ID = new PublicKey("4Mw572DpPh5UWWx9ic4sZBtG8UJRBujJPXrE2pcwvBzw");
 
@@ -20,6 +21,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
     const anchorWallet = useAnchorWallet();
     const { connection } = useConnection();
     const [betAmount, setBetAmount] = useState(0.005);
+    const { play } = useSoundEffects();
 
     // Profile stats for inline display
     const [profileStats, setProfileStats] = useState<{
@@ -225,6 +227,13 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             const status = await checkCanClaimFromServer();
             setClaimStatus(status);
 
+            // Play win/lose sound
+            if (status.canClaim) {
+                play('win');
+            } else if (status.reason === 'Did not bet on winner') {
+                play('lose');
+            }
+
             // Also refresh pool info
             await fetchPoolInfo();
         });
@@ -315,6 +324,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             // Register bet on server (secure, replaces localStorage)
             await registerBetToServer(poolData.poolPda, { side: color, amount: betAmount }, sig);
 
+            play('bet'); // Play bet sound
             alert(`Bet placed on ${color.toUpperCase()}! TX: ${sig.slice(0, 8)}...`);
 
         } catch (e: any) {
