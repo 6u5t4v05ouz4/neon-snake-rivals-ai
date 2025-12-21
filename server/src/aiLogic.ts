@@ -28,13 +28,22 @@ const distance = (a: Point, b: Point): number => {
   return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 };
 
+// Helper: Get opposite direction (to prevent reversing)
+const getOpposite = (dir: Direction): Direction => {
+  switch (dir) {
+    case Direction.UP: return Direction.DOWN;
+    case Direction.DOWN: return Direction.UP;
+    case Direction.LEFT: return Direction.RIGHT;
+    case Direction.RIGHT: return Direction.LEFT;
+  }
+};
+
 // Flood fill to calculate available space
 const calculateFreeSpace = (start: Point, snakes: Snake[]): number => {
   const visited = new Set<string>();
   const queue: Point[] = [start];
   let count = 0;
 
-  // Limit flood fill depth for performance
   const MAX_DEPTH = 50;
 
   while (queue.length > 0 && count < MAX_DEPTH) {
@@ -55,51 +64,132 @@ const calculateFreeSpace = (start: Point, snakes: Snake[]): number => {
   return count;
 };
 
-// Main AI Decision Function
-export const getBestMove = (me: Snake, allSnakes: Snake[], food: Point): Direction => {
-  const head = me.body[0];
-  const possibleMoves = Object.values(Direction);
+// Simulate a move and return updated snake state
+const simulateMove = (snake: Snake, dir: Direction, allSnakes: Snake[]): { snake: Snake; valid: boolean } => {
+  const head = snake.body[0];
+  const newHead = getNextCoord(head, dir);
 
-  // Filter out immediate death
-  const safeMoves = possibleMoves.filter(dir => {
+  // Check if move is valid
+  if (!isValid(newHead) || isCollision(newHead, allSnakes)) {
+    return { snake, valid: false };
+  }
+
+  // Create new snake with moved position
+  const newBody = [newHead, ...snake.body.slice(0, -1)];
+  return {
+    snake: { ...snake, body: newBody, direction: dir },
+    valid: true
+  };
+};
+
+// Evaluate a position (higher is better)
+const evaluatePosition = (snake: Snake, allSnakes: Snake[], food: Point): number => {
+  const head = snake.body[0];
+  let score = 0;
+
+  // Distance to food (closer = better)
+  const distToFood = distance(head, food);
+  score -= distToFood * 2;
+
+  // Free space (more = better, avoid traps)
+  const freeSpace = calculateFreeSpace(head, allSnakes);
+  score += freeSpace * 5;
+
+  // Avoid other snake heads
+  const otherSnake = allSnakes.find(s => s.id !== snake.id);
+  if (otherSnake) {
+    const distToOtherHead = distance(head, otherSnake.body[0]);
+    if (distToOtherHead < 3) {
+      score -= (3 - distToOtherHead) * 30; // Closer = more dangerous
+    }
+  }
+
+  // Bonus for being closer to center (more escape routes)
+  const centerX = BOARD_WIDTH / 2;
+  const centerY = BOARD_HEIGHT / 2;
+  const distToCenter = Math.abs(head.x - centerX) + Math.abs(head.y - centerY);
+  score -= distToCenter * 0.5;
+
+  return score;
+};
+
+// Get safe moves (not immediate death)
+const getSafeMoves = (snake: Snake, allSnakes: Snake[]): Direction[] => {
+  const head = snake.body[0];
+  const neck = snake.body[1];
+
+  return Object.values(Direction).filter(dir => {
     const next = getNextCoord(head, dir);
-    // Don't reverse
-    const neck = me.body[1];
+
+    // Don't reverse into neck
     if (neck && next.x === neck.x && next.y === neck.y) return false;
 
+    // Must be valid and not collide
     return isValid(next) && !isCollision(next, allSnakes);
   });
+};
 
-  if (safeMoves.length === 0) return me.direction; // Accepted fate
+// LOOKAHEAD: Evaluate move by simulating 2 moves ahead
+const evaluateMoveWithLookahead = (
+  snake: Snake,
+  dir: Direction,
+  allSnakes: Snake[],
+  food: Point
+): number => {
+  // Simulate first move
+  const { snake: afterMove1, valid: valid1 } = simulateMove(snake, dir, allSnakes);
+  if (!valid1) return -Infinity;
 
-  // Score moves
-  const scoredMoves = safeMoves.map(dir => {
-    const next = getNextCoord(head, dir);
-    let score = 0;
+  // Get immediate score
+  let score = evaluatePosition(afterMove1, allSnakes, food);
 
-    // 1. Distance to food (Lower is better, so we subtract)
-    const distToFood = distance(next, food);
-    score -= distToFood * 2;
+  // Lookahead: simulate second move (best case)
+  const secondMoves = getSafeMoves(afterMove1, allSnakes);
 
-    // 2. Space availability (Don't get trapped)
-    const freeSpace = calculateFreeSpace(next, allSnakes);
-    score += freeSpace * 5;
+  if (secondMoves.length === 0) {
+    // Dead end! Heavy penalty
+    score -= 200;
+  } else {
+    // Find best second move score
+    let bestSecondScore = -Infinity;
 
-    // 3. Avoid other snake heads (Collision risk)
-    const otherSnake = allSnakes.find(s => s.id !== me.id);
-    if (otherSnake) {
-      const distToOtherHead = distance(next, otherSnake.body[0]);
-      if (distToOtherHead < 2) {
-        // If we are smaller, RUN AWAY. If bigger, maybe aggressive? Safe play: avoid.
-        score -= 50;
+    for (const secondDir of secondMoves) {
+      const { snake: afterMove2, valid: valid2 } = simulateMove(afterMove1, secondDir, allSnakes);
+      if (valid2) {
+        const secondScore = evaluatePosition(afterMove2, allSnakes, food);
+
+        // Also check if third move is possible (avoid 2-move traps)
+        const thirdMoves = getSafeMoves(afterMove2, allSnakes);
+        const thirdBonus = thirdMoves.length * 10;
+
+        bestSecondScore = Math.max(bestSecondScore, secondScore + thirdBonus);
       }
     }
 
-    return { dir, score };
-  });
+    // Weight future score less than immediate
+    if (bestSecondScore > -Infinity) {
+      score += bestSecondScore * 0.5;
+    }
+  }
+
+  return score;
+};
+
+// Main AI Decision Function with 2-Move Lookahead
+export const getBestMove = (me: Snake, allSnakes: Snake[], food: Point): Direction => {
+  const safeMoves = getSafeMoves(me, allSnakes);
+
+  if (safeMoves.length === 0) return me.direction; // No safe moves, accept fate
+
+  // Score each move with lookahead
+  const scoredMoves = safeMoves.map(dir => ({
+    dir,
+    score: evaluateMoveWithLookahead(me, dir, allSnakes, food)
+  }));
 
   // Sort by score descending
   scoredMoves.sort((a, b) => b.score - a.score);
 
   return scoredMoves[0].dir;
 };
+
