@@ -90,14 +90,17 @@ const AppContent: React.FC = () => {
   }, [gameState.status]);
 
   useEffect(() => {
-    // Countdown tick sound (only last 3 seconds)
-    if (gameState.nextMatchCountdown !== null &&
-      gameState.nextMatchCountdown <= 3 &&
-      gameState.nextMatchCountdown !== prevCountdown.current) {
+    // Countdown tick sound (only last 3 seconds, only when value changes)
+    const countdown = gameState.nextMatchCountdown;
+    if (countdown !== null &&
+      countdown <= 3 &&
+      countdown > 0 &&
+      countdown !== prevCountdown.current) {
       play('countdown');
     }
-    prevCountdown.current = gameState.nextMatchCountdown;
-  }, [gameState.nextMatchCountdown, play]);
+    prevCountdown.current = countdown;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState.nextMatchCountdown]);
 
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-8 flex flex-col items-center">
