@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { ChatMessage } from '../types';
 import { MessageSquare, Send, AlertCircle } from 'lucide-react';
 import { SERVER_URL } from '../constants';
+import { useSoundEffects } from '../hooks/useSoundEffects';
 
 interface Props {
     walletAddress: string | null;
@@ -16,6 +17,7 @@ const ChatPanel: React.FC<Props> = ({ walletAddress, userHasBet }) => {
     const [isConnected, setIsConnected] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
     const socketRef = useRef<Socket | null>(null);
+    const { play } = useSoundEffects();
 
     // Auto-scroll to bottom
     useEffect(() => {
@@ -56,6 +58,10 @@ const ChatPanel: React.FC<Props> = ({ walletAddress, userHasBet }) => {
                 ...msg,
                 timestamp: new Date(msg.timestamp)
             }]);
+            // Play bloop sound for messages from others
+            if (msg.walletAddress !== walletAddress) {
+                play('bloop');
+            }
         });
 
         // Receive errors
@@ -129,8 +135,8 @@ const ChatPanel: React.FC<Props> = ({ walletAddress, userHasBet }) => {
                             </span>
                         </div>
                         <div className={`p-2 rounded-md ${msg.side === 'cyan'
-                                ? 'bg-cyan-900/20 text-cyan-100 border border-cyan-700/30'
-                                : 'bg-fuchsia-900/20 text-fuchsia-100 border border-fuchsia-700/30'
+                            ? 'bg-cyan-900/20 text-cyan-100 border border-cyan-700/30'
+                            : 'bg-fuchsia-900/20 text-fuchsia-100 border border-fuchsia-700/30'
                             }`}>
                             {msg.message}
                         </div>

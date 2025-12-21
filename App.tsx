@@ -85,16 +85,9 @@ const AppContent: React.FC = () => {
   }, [s1.score, s2.score, play]);
 
   useEffect(() => {
-    // Game status changes
-    if (prevStatus.current !== gameState.status) {
-      if (gameState.status === GameStatus.PLAYING && prevStatus.current !== GameStatus.PLAYING) {
-        play('go');
-      } else if (gameState.status === GameStatus.GAME_OVER) {
-        play('gameover');
-      }
-      prevStatus.current = gameState.status;
-    }
-  }, [gameState.status, play]);
+    // Track game status changes (no sound for these events currently)
+    prevStatus.current = gameState.status;
+  }, [gameState.status]);
 
   useEffect(() => {
     // Countdown tick sound (only last 3 seconds)
@@ -129,7 +122,7 @@ const AppContent: React.FC = () => {
             SNAKE SOL ARENA
           </h1>
           <p className="text-slate-400 text-sm mt-1 font-mono">
-            <span className="text-cyan-400">AUTONOMOUS_AI // POWERED_BY_GEMINI 3 // LIVE ON DEVNET</span>
+            <span className="text-cyan-400">AUTONOMOUS_AI // LIVE ON DEVNET</span>
           </p>
         </div>
       </header>

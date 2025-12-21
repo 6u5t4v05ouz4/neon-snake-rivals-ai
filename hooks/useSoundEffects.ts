@@ -2,24 +2,20 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 
 export type SoundName =
     | 'eat'
-    | 'die'
     | 'bet'
     | 'win'
     | 'lose'
     | 'countdown'
-    | 'go'
-    | 'gameover';
+    | 'bloop';
 
-// Placeholder sounds from CDN (replace with local files later)
+// Local sound files from assets/sounds
 const SOUND_FILES: Record<SoundName, string> = {
-    eat: 'https://cdn.pixabay.com/audio/2022/03/10/audio_d1073fc6cf.mp3',
-    die: 'https://cdn.pixabay.com/audio/2022/03/15/audio_fd9dc2cc38.mp3',
-    bet: 'https://cdn.pixabay.com/audio/2021/08/04/audio_6f62e5f7c6.mp3',
-    win: 'https://cdn.pixabay.com/audio/2021/08/04/audio_5e1a14edb5.mp3',
-    lose: 'https://cdn.pixabay.com/audio/2022/03/15/audio_6bd02dbacf.mp3',
-    countdown: 'https://cdn.pixabay.com/audio/2022/03/15/audio_8f9c3e8f3b.mp3',
-    go: 'https://cdn.pixabay.com/audio/2022/03/15/audio_e03d00c53c.mp3',
-    gameover: 'https://cdn.pixabay.com/audio/2022/03/24/audio_60c4a76e92.mp3',
+    eat: '/assets/sounds/eat.mp3',
+    bet: '/assets/sounds/bet.mp3',
+    win: '/assets/sounds/win.mp3',
+    lose: '/assets/sounds/lose.mp3',
+    countdown: '/assets/sounds/countdown.mp3',
+    bloop: '/assets/sounds/bloop.mp3',
 };
 
 const STORAGE_KEY = 'snake-arena-sound-enabled';
