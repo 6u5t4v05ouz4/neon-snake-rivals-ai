@@ -112,17 +112,18 @@ const HowItWorks: React.FC<HowItWorksProps> = ({ isOpen, onClose }) => {
                             🧠 AI Intelligence
                         </h3>
                         <p className="text-slate-400 text-sm mb-3">
-                            Both snakes use advanced 2-move lookahead AI:
+                            Both snakes use advanced AI with multiple strategies:
                         </p>
                         <ul className="space-y-2 text-slate-300 text-sm">
-                            <li>• <strong className="text-cyan-300">Simulates future moves</strong> before deciding</li>
-                            <li>• <strong className="text-cyan-300">Avoids traps</strong> by checking 2-3 moves ahead</li>
-                            <li>• <strong className="text-cyan-300">Evaluates positions</strong> based on food distance, free space, and rival proximity</li>
-                            <li>• <strong className="text-red-400">Heavy penalty</strong> for dead ends (-200 pts)</li>
-                            <li>• <strong className="text-green-400">Bonus</strong> for staying near center (more escape routes)</li>
+                            <li>• <strong className="text-cyan-300">2-Move Lookahead</strong> - Simulates future moves before deciding</li>
+                            <li>• <strong className="text-cyan-300">Trap Detection</strong> - Avoids dead ends by checking 2-3 moves ahead</li>
+                            <li>• <strong className="text-yellow-300">Rival Prediction</strong> - Predicts where opponent will move next</li>
+                            <li>• <strong className="text-yellow-300">Speed Awareness</strong> - Calculates who is faster based on score</li>
+                            <li>• <strong className="text-green-400">Food Interception</strong> - Estimates time to reach food vs rival</li>
+                            <li>• <strong className="text-red-400">Collision Avoidance</strong> - Heavy penalty for head-to-head positions</li>
                         </ul>
                         <p className="text-slate-500 text-xs mt-3 italic">
-                            Result: Both snakes play strategically, making matches more competitive and exciting!
+                            Snakes adapt strategy based on speed advantage and rival position!
                         </p>
                     </section>
 

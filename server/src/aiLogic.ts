@@ -82,6 +82,30 @@ const simulateMove = (snake: Snake, dir: Direction, allSnakes: Snake[]): { snake
   };
 };
 
+// === NEW: Speed Awareness ===
+// Speed formula: 200 - (score * 5) ms per move (lower = faster)
+const START_SPEED = 200;
+const SPEED_DEC = 5;
+
+const calculateSpeed = (score: number): number => {
+  return Math.max(30, START_SPEED - score * SPEED_DEC);
+};
+
+// === NEW: Rival Movement Prediction ===
+// Predict where the rival will be next tick based on current direction
+const predictRivalNextPosition = (rival: Snake): Point => {
+  const head = rival.body[0];
+  return getNextCoord(head, rival.direction);
+};
+
+// === NEW: Time to Food Estimation ===
+// Estimate how many milliseconds to reach food (distance * speed)
+const estimateTimeToFood = (snake: Snake, food: Point): number => {
+  const dist = distance(snake.body[0], food);
+  const speed = calculateSpeed(snake.score);
+  return dist * speed;
+};
+
 // Evaluate a position (higher is better)
 const evaluatePosition = (snake: Snake, allSnakes: Snake[], food: Point): number => {
   const head = snake.body[0];
@@ -89,18 +113,48 @@ const evaluatePosition = (snake: Snake, allSnakes: Snake[], food: Point): number
 
   // Distance to food (closer = better) - HIGH PRIORITY
   const distToFood = distance(head, food);
-  score -= distToFood * 4; // Increased from 2 to 4
+  score -= distToFood * 4;
 
   // Free space (more = better, avoid traps) - MEDIUM PRIORITY
   const freeSpace = calculateFreeSpace(head, allSnakes);
-  score += freeSpace * 3; // Reduced from 5 to 3
+  score += freeSpace * 3;
 
-  // Avoid other snake heads - only if VERY close
+  // === IMPROVED: Rival awareness with prediction ===
   const otherSnake = allSnakes.find(s => s.id !== snake.id);
   if (otherSnake) {
-    const distToOtherHead = distance(head, otherSnake.body[0]);
-    if (distToOtherHead <= 2) {
-      score -= (3 - distToOtherHead) * 20; // Reduced penalty, only when very close
+    const rivalHead = otherSnake.body[0];
+    const distToRivalHead = distance(head, rivalHead);
+
+    // Avoid current rival head position
+    if (distToRivalHead <= 2) {
+      score -= (3 - distToRivalHead) * 20;
+    }
+
+    // === NEW: Predict rival's next position and avoid it ===
+    const predictedRivalPos = predictRivalNextPosition(otherSnake);
+    const distToPredicted = distance(head, predictedRivalPos);
+    if (distToPredicted <= 1) {
+      score -= 40; // Heavy penalty for moving to where rival is heading
+    }
+
+    // === NEW: Speed-based food competition ===
+    const myTimeToFood = estimateTimeToFood(snake, food);
+    const rivalTimeToFood = estimateTimeToFood(otherSnake, food);
+
+    if (myTimeToFood < rivalTimeToFood) {
+      // I'll reach food first - bonus for going towards it
+      score += 25;
+    } else if (rivalTimeToFood < myTimeToFood - 300) {
+      // Rival will reach food much faster - small penalty to avoid futile chase
+      score -= 10;
+    }
+
+    // === NEW: If I'm faster overall, be more aggressive ===
+    const mySpeed = calculateSpeed(snake.score);
+    const rivalSpeed = calculateSpeed(otherSnake.score);
+    if (mySpeed < rivalSpeed) {
+      // I'm faster - slight bonus for aggressive food pursuit
+      score += 5;
     }
   }
 
@@ -108,7 +162,7 @@ const evaluatePosition = (snake: Snake, allSnakes: Snake[], food: Point): number
   const centerX = BOARD_WIDTH / 2;
   const centerY = BOARD_HEIGHT / 2;
   const distToCenter = Math.abs(head.x - centerX) + Math.abs(head.y - centerY);
-  score -= distToCenter * 0.3; // Reduced from 0.5 to 0.3
+  score -= distToCenter * 0.3;
 
   return score;
 };
