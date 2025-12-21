@@ -93,7 +93,7 @@ const AppContent: React.FC = () => {
     // Countdown tick sound (only last 3 seconds, only when value changes)
     const countdown = gameState.nextMatchCountdown;
     if (countdown !== null &&
-      countdown <= 3 &&
+      countdown <= 5 &&
       countdown > 0 &&
       countdown !== prevCountdown.current) {
       play('countdown');
