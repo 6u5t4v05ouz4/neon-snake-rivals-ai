@@ -87,28 +87,28 @@ const evaluatePosition = (snake: Snake, allSnakes: Snake[], food: Point): number
   const head = snake.body[0];
   let score = 0;
 
-  // Distance to food (closer = better)
+  // Distance to food (closer = better) - HIGH PRIORITY
   const distToFood = distance(head, food);
-  score -= distToFood * 2;
+  score -= distToFood * 4; // Increased from 2 to 4
 
-  // Free space (more = better, avoid traps)
+  // Free space (more = better, avoid traps) - MEDIUM PRIORITY
   const freeSpace = calculateFreeSpace(head, allSnakes);
-  score += freeSpace * 5;
+  score += freeSpace * 3; // Reduced from 5 to 3
 
-  // Avoid other snake heads
+  // Avoid other snake heads - only if VERY close
   const otherSnake = allSnakes.find(s => s.id !== snake.id);
   if (otherSnake) {
     const distToOtherHead = distance(head, otherSnake.body[0]);
-    if (distToOtherHead < 3) {
-      score -= (3 - distToOtherHead) * 30; // Closer = more dangerous
+    if (distToOtherHead <= 2) {
+      score -= (3 - distToOtherHead) * 20; // Reduced penalty, only when very close
     }
   }
 
-  // Bonus for being closer to center (more escape routes)
+  // Small bonus for being closer to center (more escape routes)
   const centerX = BOARD_WIDTH / 2;
   const centerY = BOARD_HEIGHT / 2;
   const distToCenter = Math.abs(head.x - centerX) + Math.abs(head.y - centerY);
-  score -= distToCenter * 0.5;
+  score -= distToCenter * 0.3; // Reduced from 0.5 to 0.3
 
   return score;
 };
