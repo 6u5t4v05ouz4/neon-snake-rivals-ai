@@ -495,6 +495,13 @@ async function startServer() {
         // Send chat history on connect
         socket.emit('chat:history', sessionChatMessages);
 
+        // Ping handler for latency measurement
+        socket.on('ping', (callback) => {
+            if (typeof callback === 'function') {
+                callback();
+            }
+        });
+
         // Handle chat message from client
         socket.on('chat:send', async (data: { walletAddress: string; message: string }) => {
             try {

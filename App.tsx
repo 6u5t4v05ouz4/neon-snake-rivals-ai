@@ -6,7 +6,7 @@ import BettingPanel from './components/BettingPanel';
 import ChatPanel from './components/ChatPanel';
 import LeaderboardPanel from './components/LeaderboardPanel';
 import HowItWorks from './components/HowItWorks';
-import { HelpCircle, Volume2, VolumeX, Twitter } from 'lucide-react';
+import { HelpCircle, Volume2, VolumeX, Twitter, Wifi } from 'lucide-react';
 import { GameStatus } from './types';
 import { SERVER_URL } from './constants';
 
@@ -20,7 +20,7 @@ import { useSoundEffects } from './hooks/useSoundEffects';
 
 // Inner component to use wallet hooks
 const AppContent: React.FC = () => {
-  const { gameState } = useSnakeGame();
+  const { gameState, ping } = useSnakeGame();
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const { publicKey, connected } = useWallet();
   const [userHasBet, setUserHasBet] = useState(false);
@@ -119,6 +119,17 @@ const AppContent: React.FC = () => {
             <VolumeX size={20} className="text-slate-500" />
           )}
         </button>
+
+        {/* Ping Indicator */}
+        <div
+          className="fixed top-4 right-[400px] z-40 flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-800/80 rounded-full border border-slate-600"
+          title={ping ? `Latency: ${ping}ms` : 'Connecting...'}
+        >
+          <Wifi size={14} className={ping !== null ? (ping < 100 ? 'text-green-400' : ping < 200 ? 'text-yellow-400' : 'text-red-400') : 'text-slate-500'} />
+          <span className={`text-xs font-mono ${ping !== null ? (ping < 100 ? 'text-green-400' : ping < 200 ? 'text-yellow-400' : 'text-red-400') : 'text-slate-500'}`}>
+            {ping !== null ? `${ping}ms` : '--'}
+          </span>
+        </div>
 
         <div>
           <h1 className="text-3xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-white to-fuchsia-500 brand-font tracking-tighter">

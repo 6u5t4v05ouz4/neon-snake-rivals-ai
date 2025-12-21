@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { GameState, GameStatus, Direction } from '../types';
 import { SERVER_URL, SNAKE_1_START, SNAKE_2_START, BOARD_WIDTH, BOARD_HEIGHT } from '../constants';
@@ -39,16 +39,24 @@ const createInitialState = (): GameState => ({
 export const useSnakeGame = () => {
   const [gameState, setGameState] = useState<GameState>(createInitialState());
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [ping, setPing] = useState<number | null>(null);
+  const pingInterval = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Connect to specific URL (Railway or Local)
-    // For deployment, this should ideally be an env var or the same host if served together.
-    // For now we use the constant.
     const newSocket = io(SERVER_URL);
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
       console.log('Connected to game server:', newSocket.id);
+
+      // Start ping measurement
+      pingInterval.current = setInterval(() => {
+        const start = Date.now();
+        newSocket.emit('ping', () => {
+          const latency = Date.now() - start;
+          setPing(latency);
+        });
+      }, 3000); // Measure every 3 seconds
     });
 
     newSocket.on('gameState', (serverState: GameState) => {
@@ -57,9 +65,13 @@ export const useSnakeGame = () => {
 
     newSocket.on('disconnect', () => {
       console.log('Disconnected from game server');
+      setPing(null);
     });
 
     return () => {
+      if (pingInterval.current) {
+        clearInterval(pingInterval.current);
+      }
       newSocket.disconnect();
     };
   }, []);
@@ -69,5 +81,5 @@ export const useSnakeGame = () => {
   const pauseGame = () => { };
   const resetGame = () => { };
 
-  return { gameState, startGame, pauseGame, resetGame };
+  return { gameState, ping, startGame, pauseGame, resetGame };
 };
