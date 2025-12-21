@@ -107,30 +107,6 @@ const AppContent: React.FC = () => {
 
       {/* Header */}
       <header className="w-full max-w-6xl mb-8 flex flex-col items-center gap-6 text-center">
-        {/* Sound Toggle - Top Right */}
-        <button
-          onClick={toggleSound}
-          className="fixed top-4 right-[340px] z-40 p-2 bg-slate-800/80 hover:bg-slate-700 rounded-full border border-slate-600 transition-colors"
-          title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
-        >
-          {soundEnabled ? (
-            <Volume2 size={20} className="text-green-400" />
-          ) : (
-            <VolumeX size={20} className="text-slate-500" />
-          )}
-        </button>
-
-        {/* Ping Indicator */}
-        <div
-          className="fixed top-4 right-[400px] z-40 flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-800/80 rounded-full border border-slate-600"
-          title={ping ? `Latency: ${ping}ms` : 'Connecting...'}
-        >
-          <Wifi size={14} className={ping !== null ? (ping < 100 ? 'text-green-400' : ping < 200 ? 'text-yellow-400' : 'text-red-400') : 'text-slate-500'} />
-          <span className={`text-xs font-mono ${ping !== null ? (ping < 100 ? 'text-green-400' : ping < 200 ? 'text-yellow-400' : 'text-red-400') : 'text-slate-500'}`}>
-            {ping !== null ? `${ping}ms` : '--'}
-          </span>
-        </div>
-
         <div>
           <h1 className="text-3xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-white to-fuchsia-500 brand-font tracking-tighter">
             SNAKE SOL ARENA
@@ -181,8 +157,33 @@ const AppContent: React.FC = () => {
       {/* How It Works Modal */}
       <HowItWorks isOpen={showHowItWorks} onClose={() => setShowHowItWorks(false)} />
 
-      {/* Footer - Social Links */}
-      <footer className="fixed bottom-4 right-4 z-40">
+      {/* Footer - Controls & Social Links */}
+      <footer className="fixed bottom-4 right-4 z-40 flex items-center gap-2">
+        {/* Ping Indicator */}
+        <div
+          className="flex items-center gap-1.5 px-2.5 py-2 bg-slate-800/80 rounded-full border border-slate-600"
+          title={ping ? `Latency: ${ping}ms` : 'Connecting...'}
+        >
+          <Wifi size={14} className={ping !== null ? (ping < 100 ? 'text-green-400' : ping < 200 ? 'text-yellow-400' : 'text-red-400') : 'text-slate-500'} />
+          <span className={`text-xs font-mono ${ping !== null ? (ping < 100 ? 'text-green-400' : ping < 200 ? 'text-yellow-400' : 'text-red-400') : 'text-slate-500'}`}>
+            {ping !== null ? `${ping}ms` : '--'}
+          </span>
+        </div>
+
+        {/* Sound Toggle */}
+        <button
+          onClick={toggleSound}
+          className="flex items-center justify-center w-10 h-10 bg-slate-800/80 hover:bg-slate-700 rounded-full border border-slate-600 transition-colors"
+          title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+        >
+          {soundEnabled ? (
+            <Volume2 size={18} className="text-green-400" />
+          ) : (
+            <VolumeX size={18} className="text-slate-500" />
+          )}
+        </button>
+
+        {/* Twitter/X Link */}
         <a
           href="https://x.com/SnakeSolArena"
           target="_blank"
