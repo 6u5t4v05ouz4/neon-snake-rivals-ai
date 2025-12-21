@@ -8,7 +8,7 @@ export const MIN_SPEED = 30;
 export const WIN_SCORE = 25;
 export const RESTART_DELAY = 60; // seconds
 
-export const SNAKE_1_START = { x: 5, y: 5 };
+export const SNAKE_1_START = { x: 0, y: 0 };
 export const SNAKE_2_START = { x: 19, y: 19 };
 
 export const THEME = {
