@@ -8,14 +8,14 @@ export type SoundName =
     | 'countdown'
     | 'bloop';
 
-// Local sound files from assets/sounds
+// Local sound files from public/sounds
 const SOUND_FILES: Record<SoundName, string> = {
-    eat: '/assets/sounds/eat.mp3',
-    bet: '/assets/sounds/bet.mp3',
-    win: '/assets/sounds/win.mp3',
-    lose: '/assets/sounds/lose.mp3',
-    countdown: '/assets/sounds/countdown.mp3',
-    bloop: '/assets/sounds/bloop.mp3',
+    eat: '/sounds/eat.mp3',
+    bet: '/sounds/bet.mp3',
+    win: '/sounds/win.mp3',
+    lose: '/sounds/lose.mp3',
+    countdown: '/sounds/countdown.mp3',
+    bloop: '/sounds/bloop.mp3',
 };
 
 const STORAGE_KEY = 'snake-arena-sound-enabled';
