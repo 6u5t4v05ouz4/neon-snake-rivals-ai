@@ -33,18 +33,31 @@ if (typeof window !== 'undefined') {
     });
 }
 
+// Track last countdown audio to stop it before playing new one
+let lastCountdownAudio: HTMLAudioElement | null = null;
+
 // Play function that can be called directly
 function playSoundDirect(name: SoundName, enabled: boolean) {
     if (!enabled) return;
 
     const audio = audioCache.get(name);
     if (audio) {
-        // Clone for overlapping sounds
+        // For countdown, stop the previous one first to prevent overlap
+        if (name === 'countdown' && lastCountdownAudio) {
+            lastCountdownAudio.pause();
+            lastCountdownAudio.currentTime = 0;
+        }
+
+        // Clone for overlapping sounds (except countdown)
         const clone = audio.cloneNode() as HTMLAudioElement;
         clone.volume = 0.5;
         clone.play().catch(() => {
             // Ignore autoplay errors
         });
+
+        if (name === 'countdown') {
+            lastCountdownAudio = clone;
+        }
     }
 }
 
