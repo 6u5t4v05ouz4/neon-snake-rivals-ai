@@ -6,7 +6,7 @@ import BettingPanel from './components/BettingPanel';
 import ChatPanel from './components/ChatPanel';
 import LeaderboardPanel from './components/LeaderboardPanel';
 import HowItWorks from './components/HowItWorks';
-import { HelpCircle, Volume2, VolumeX } from 'lucide-react';
+import { HelpCircle, Volume2, VolumeX, Twitter } from 'lucide-react';
 import { GameStatus } from './types';
 import { SERVER_URL } from './constants';
 
@@ -169,6 +169,19 @@ const AppContent: React.FC = () => {
 
       {/* How It Works Modal */}
       <HowItWorks isOpen={showHowItWorks} onClose={() => setShowHowItWorks(false)} />
+
+      {/* Footer - Social Links */}
+      <footer className="fixed bottom-4 right-4 z-40">
+        <a
+          href="https://x.com/SnakeSolArena"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center w-10 h-10 bg-slate-800/80 hover:bg-slate-700 rounded-full border border-slate-600 transition-colors"
+          title="Follow us on X"
+        >
+          <Twitter size={18} className="text-white" />
+        </a>
+      </footer>
     </div>
   );
 };
