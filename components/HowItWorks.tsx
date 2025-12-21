@@ -106,6 +106,26 @@ const HowItWorks: React.FC<HowItWorksProps> = ({ isOpen, onClose }) => {
                         </ul>
                     </section>
 
+                    {/* AI Intelligence Section */}
+                    <section>
+                        <h3 className="text-lg font-semibold text-cyan-400 flex items-center gap-2 mb-3">
+                            🧠 AI Intelligence
+                        </h3>
+                        <p className="text-slate-400 text-sm mb-3">
+                            Both snakes use advanced 2-move lookahead AI:
+                        </p>
+                        <ul className="space-y-2 text-slate-300 text-sm">
+                            <li>• <strong className="text-cyan-300">Simulates future moves</strong> before deciding</li>
+                            <li>• <strong className="text-cyan-300">Avoids traps</strong> by checking 2-3 moves ahead</li>
+                            <li>• <strong className="text-cyan-300">Evaluates positions</strong> based on food distance, free space, and rival proximity</li>
+                            <li>• <strong className="text-red-400">Heavy penalty</strong> for dead ends (-200 pts)</li>
+                            <li>• <strong className="text-green-400">Bonus</strong> for staying near center (more escape routes)</li>
+                        </ul>
+                        <p className="text-slate-500 text-xs mt-3 italic">
+                            Result: Both snakes play strategically, making matches more competitive and exciting!
+                        </p>
+                    </section>
+
                     {/* Footer */}
                     <div className="pt-4 border-t border-slate-700 text-center">
                         <p className="text-slate-500 text-xs">
