@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 export type SoundName =
     | 'eat'
@@ -20,6 +20,34 @@ const SOUND_FILES: Record<SoundName, string> = {
 
 const STORAGE_KEY = 'snake-arena-sound-enabled';
 
+// Singleton audio cache - initialized once at module load
+const audioCache: Map<SoundName, HTMLAudioElement> = new Map();
+
+// Initialize audio elements immediately
+if (typeof window !== 'undefined') {
+    Object.entries(SOUND_FILES).forEach(([name, path]) => {
+        const audio = new Audio(path);
+        audio.preload = 'auto';
+        audio.volume = 0.5;
+        audioCache.set(name as SoundName, audio);
+    });
+}
+
+// Play function that can be called directly
+function playSoundDirect(name: SoundName, enabled: boolean) {
+    if (!enabled) return;
+
+    const audio = audioCache.get(name);
+    if (audio) {
+        // Clone for overlapping sounds
+        const clone = audio.cloneNode() as HTMLAudioElement;
+        clone.volume = 0.5;
+        clone.play().catch(() => {
+            // Ignore autoplay errors
+        });
+    }
+}
+
 export interface UseSoundEffectsReturn {
     play: (name: SoundName) => void;
     enabled: boolean;
@@ -33,43 +61,13 @@ export function useSoundEffects(): UseSoundEffectsReturn {
         return stored !== 'false'; // Default to enabled
     });
 
-    const audioCache = useRef<Map<SoundName, HTMLAudioElement>>(new Map());
-
-    // Preload sounds
-    useEffect(() => {
-        Object.entries(SOUND_FILES).forEach(([name, path]) => {
-            const audio = new Audio(path);
-            audio.preload = 'auto';
-            audio.volume = 0.5;
-            audioCache.current.set(name as SoundName, audio);
-        });
-
-        return () => {
-            audioCache.current.forEach(audio => {
-                audio.pause();
-                audio.src = '';
-            });
-            audioCache.current.clear();
-        };
-    }, []);
-
     // Save preference
     useEffect(() => {
         localStorage.setItem(STORAGE_KEY, String(enabled));
     }, [enabled]);
 
     const play = useCallback((name: SoundName) => {
-        if (!enabled) return;
-
-        const audio = audioCache.current.get(name);
-        if (audio) {
-            // Clone for overlapping sounds
-            const clone = audio.cloneNode() as HTMLAudioElement;
-            clone.volume = 0.5;
-            clone.play().catch(() => {
-                // Ignore autoplay errors (user hasn't interacted yet)
-            });
-        }
+        playSoundDirect(name, enabled);
     }, [enabled]);
 
     const toggle = useCallback(() => {
@@ -80,3 +78,4 @@ export function useSoundEffects(): UseSoundEffectsReturn {
 }
 
 export default useSoundEffects;
+
