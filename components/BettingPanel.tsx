@@ -380,6 +380,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             // Mark as claimed on server
             await markClaimedOnServer(claimStatus.poolPda);
 
+            play('bet'); // Play sound on successful claim
             alert(`Winnings claimed! TX: ${sig.slice(0, 8)}...`);
             setUserBet(null);
             setClaimStatus(null);
