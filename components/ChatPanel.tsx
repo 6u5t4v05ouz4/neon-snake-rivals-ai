@@ -70,8 +70,9 @@ const ChatPanel: React.FC<Props> = ({ walletAddress, userHasBet }) => {
                 ...msg,
                 timestamp: new Date(msg.timestamp)
             }]);
-            // Play bloop sound for messages from others
-            if (msg.walletAddress !== walletRef.current) {
+            // Play bloop sound for all incoming messages (except own)
+            const isOwn = walletRef.current && msg.walletAddress === walletRef.current;
+            if (!isOwn) {
                 playRef.current('bloop');
             }
         });
