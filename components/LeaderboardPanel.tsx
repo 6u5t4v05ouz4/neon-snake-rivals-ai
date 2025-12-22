@@ -99,9 +99,8 @@ const LeaderboardPanel: React.FC<LeaderboardPanelProps> = ({ currentWallet }) =>
                                     </span>
                                 </div>
 
-                                {/* Stats */}
-                                <div className="flex items-center gap-3 text-right">
-                                    <span className="text-slate-500">{entry.winRate}%</span>
+                                {/* Stats - Score only */}
+                                <div className="flex items-center text-right">
                                     <span className={`font-mono font-semibold ${entry.score >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                                         {entry.score >= 0 ? '+' : ''}{entry.score.toFixed(1)} pts
                                     </span>

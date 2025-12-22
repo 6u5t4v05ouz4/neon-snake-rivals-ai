@@ -93,6 +93,27 @@ const HowItWorks: React.FC<HowItWorksProps> = ({ isOpen, onClose }) => {
                         </ul>
                     </section>
 
+                    {/* Leaderboard Section */}
+                    <section>
+                        <h3 className="text-lg font-semibold text-yellow-400 flex items-center gap-2 mb-3">
+                            🏆 Leaderboard
+                        </h3>
+                        <p className="text-slate-400 text-sm mb-3">
+                            Top 10 bettors ranked by weighted score:
+                        </p>
+                        <div className="bg-slate-800/50 rounded-lg p-3 mb-3">
+                            <code className="text-green-400 text-sm">
+                                Score = (Wins × 3) + (Bets × 0.5) - (Losses × 1)
+                            </code>
+                        </div>
+                        <ul className="space-y-2 text-slate-300 text-sm">
+                            <li>• <strong className="text-green-400">+3 pts</strong> for each win</li>
+                            <li>• <strong className="text-blue-400">+0.5 pts</strong> for each bet placed</li>
+                            <li>• <strong className="text-red-400">-1 pt</strong> for each loss</li>
+                            <li>• Rewards <strong>consistency</strong> and <strong>volume</strong></li>
+                        </ul>
+                    </section>
+
                     {/* Wallet Section */}
                     <section>
                         <h3 className="text-lg font-semibold text-purple-400 flex items-center gap-2 mb-3">
