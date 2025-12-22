@@ -26,6 +26,18 @@ const ChatPanel: React.FC<Props> = ({ walletAddress, userHasBet }) => {
         }
     }, [messages]);
 
+    // Keep play function reference updated
+    const playRef = useRef(play);
+    useEffect(() => {
+        playRef.current = play;
+    }, [play]);
+
+    // Keep walletAddress reference updated
+    const walletRef = useRef(walletAddress);
+    useEffect(() => {
+        walletRef.current = walletAddress;
+    }, [walletAddress]);
+
     // Socket connection
     useEffect(() => {
         const socket = io(SERVER_URL, {
@@ -59,8 +71,8 @@ const ChatPanel: React.FC<Props> = ({ walletAddress, userHasBet }) => {
                 timestamp: new Date(msg.timestamp)
             }]);
             // Play bloop sound for messages from others
-            if (msg.walletAddress !== walletAddress) {
-                play('bloop');
+            if (msg.walletAddress !== walletRef.current) {
+                playRef.current('bloop');
             }
         });
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useSyncExternalStore } from 'react';
 
 export type SoundName =
     | 'eat'
@@ -36,9 +36,31 @@ if (typeof window !== 'undefined') {
 // Track last countdown audio to stop it before playing new one
 let lastCountdownAudio: HTMLAudioElement | null = null;
 
-// Play function that can be called directly
-function playSoundDirect(name: SoundName, enabled: boolean) {
-    if (!enabled) return;
+// === GLOBAL ENABLED STATE (singleton) ===
+let globalEnabled = typeof window !== 'undefined'
+    ? localStorage.getItem(STORAGE_KEY) !== 'false'
+    : true;
+
+const listeners = new Set<() => void>();
+
+const subscribe = (listener: () => void) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+};
+
+const getSnapshot = () => globalEnabled;
+
+const setGlobalEnabled = (value: boolean) => {
+    globalEnabled = value;
+    if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, String(value));
+    }
+    listeners.forEach(listener => listener());
+};
+
+// Play function that uses global enabled state
+function playSoundDirect(name: SoundName) {
+    if (!globalEnabled) return;
 
     const audio = audioCache.get(name);
     if (audio) {
@@ -68,27 +90,20 @@ export interface UseSoundEffectsReturn {
 }
 
 export function useSoundEffects(): UseSoundEffectsReturn {
-    const [enabled, setEnabled] = useState(() => {
-        if (typeof window === 'undefined') return true;
-        const stored = localStorage.getItem(STORAGE_KEY);
-        return stored !== 'false'; // Default to enabled
-    });
-
-    // Save preference
-    useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, String(enabled));
-    }, [enabled]);
+    // Subscribe to global enabled state changes
+    const enabled = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
     const play = useCallback((name: SoundName) => {
-        playSoundDirect(name, enabled);
-    }, [enabled]);
+        playSoundDirect(name);
+    }, []);
 
     const toggle = useCallback(() => {
-        setEnabled(prev => !prev);
+        setGlobalEnabled(!globalEnabled);
     }, []);
 
     return { play, enabled, toggle };
 }
 
 export default useSoundEffects;
+
 
