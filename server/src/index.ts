@@ -202,21 +202,26 @@ app.get('/leaderboard', async (req, res) => {
             walletStats.set(bet.walletAddress, stats);
         }
 
-        // Convert to array and sort by winRate (primary), profit (tiebreaker)
+        // Convert to array and calculate weighted score
+        // Score = (Wins × 3) + (TotalBets × 0.5) - (Losses × 1)
         const leaderboard = Array.from(walletStats.entries())
-            .map(([wallet, stats]) => ({
-                wallet,
-                displayName: `${wallet.slice(0, 4)}...${wallet.slice(-4)}`,
-                wins: stats.wins,
-                losses: stats.losses,
-                totalBets: stats.totalBets,
-                winRate: stats.totalBets > 0 ? Math.round((stats.wins / stats.totalBets) * 100) : 0,
-                wagered: Math.round(stats.wagered * 1000) / 1000,
-                profit: Math.round(stats.profit * 1000) / 1000,
-            }))
+            .map(([wallet, stats]) => {
+                const score = (stats.wins * 3) + (stats.totalBets * 0.5) - (stats.losses * 1);
+                return {
+                    wallet,
+                    displayName: `${wallet.slice(0, 4)}...${wallet.slice(-4)}`,
+                    wins: stats.wins,
+                    losses: stats.losses,
+                    totalBets: stats.totalBets,
+                    winRate: stats.totalBets > 0 ? Math.round((stats.wins / stats.totalBets) * 100) : 0,
+                    wagered: Math.round(stats.wagered * 1000) / 1000,
+                    profit: Math.round(stats.profit * 1000) / 1000,
+                    score: Math.round(score * 10) / 10, // Round to 1 decimal
+                };
+            })
             .sort((a, b) => {
-                // Primary: sort by win rate (descending)
-                if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+                // Primary: sort by weighted score (descending)
+                if (b.score !== a.score) return b.score - a.score;
                 // Tiebreaker: sort by profit (descending)
                 return b.profit - a.profit;
             })

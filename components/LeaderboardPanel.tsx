@@ -12,6 +12,7 @@ interface LeaderboardEntry {
     winRate: number;
     wagered: number;
     profit: number;
+    score: number;
 }
 
 interface LeaderboardPanelProps {
@@ -84,8 +85,8 @@ const LeaderboardPanel: React.FC<LeaderboardPanelProps> = ({ currentWallet }) =>
                             <div
                                 key={entry.wallet}
                                 className={`flex items-center justify-between py-1.5 px-2 rounded text-xs ${isCurrentUser
-                                        ? 'bg-indigo-900/50 border border-indigo-500/50'
-                                        : 'hover:bg-slate-800/50'
+                                    ? 'bg-indigo-900/50 border border-indigo-500/50'
+                                    : 'hover:bg-slate-800/50'
                                     }`}
                             >
                                 {/* Rank & Name */}
@@ -101,8 +102,8 @@ const LeaderboardPanel: React.FC<LeaderboardPanelProps> = ({ currentWallet }) =>
                                 {/* Stats */}
                                 <div className="flex items-center gap-3 text-right">
                                     <span className="text-slate-500">{entry.winRate}%</span>
-                                    <span className={`font-mono font-semibold ${entry.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                        {entry.profit >= 0 ? '+' : ''}{entry.profit.toFixed(3)}
+                                    <span className={`font-mono font-semibold ${entry.score >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                        {entry.score >= 0 ? '+' : ''}{entry.score.toFixed(1)} pts
                                     </span>
                                 </div>
                             </div>
