@@ -87,7 +87,7 @@ const HowItWorks: React.FC<HowItWorksProps> = ({ isOpen, onClose }) => {
                         </h3>
                         <ul className="space-y-2 text-slate-300 text-sm">
                             <li>• New betting pool opens after each round</li>
-                            <li>• You have <strong className="text-indigo-400">15 seconds</strong> to place bets</li>
+                            <li>• You have <strong className="text-indigo-400">60 seconds</strong> to place bets</li>
                             <li>• Bets are locked once the game starts</li>
                             <li>• Claim winnings anytime after your snake wins</li>
                         </ul>
