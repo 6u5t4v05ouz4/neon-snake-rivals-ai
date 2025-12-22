@@ -202,7 +202,7 @@ app.get('/leaderboard', async (req, res) => {
             walletStats.set(bet.walletAddress, stats);
         }
 
-        // Convert to array and sort by profit
+        // Convert to array and sort by winRate (primary), profit (tiebreaker)
         const leaderboard = Array.from(walletStats.entries())
             .map(([wallet, stats]) => ({
                 wallet,
@@ -214,7 +214,12 @@ app.get('/leaderboard', async (req, res) => {
                 wagered: Math.round(stats.wagered * 1000) / 1000,
                 profit: Math.round(stats.profit * 1000) / 1000,
             }))
-            .sort((a, b) => b.profit - a.profit)
+            .sort((a, b) => {
+                // Primary: sort by win rate (descending)
+                if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+                // Tiebreaker: sort by profit (descending)
+                return b.profit - a.profit;
+            })
             .slice(0, 10)
             .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
