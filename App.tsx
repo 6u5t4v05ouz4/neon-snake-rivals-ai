@@ -17,6 +17,7 @@ import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
 import { useWallet } from '@solana/wallet-adapter-react';
 import '@solana/wallet-adapter-react-ui/styles.css';
 import { useSoundEffects } from './hooks/useSoundEffects';
+import { ToastProvider } from './components/Toast';
 
 // Inner component to use wallet hooks
 const AppContent: React.FC = () => {
@@ -207,7 +208,9 @@ const App: React.FC = () => {
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
-          <AppContent />
+          <ToastProvider>
+            <AppContent />
+          </ToastProvider>
         </WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>

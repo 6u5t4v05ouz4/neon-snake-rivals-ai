@@ -9,6 +9,7 @@ import idl from '../src/idl/snake_betting.json';
 import { BarChart2 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { useSoundEffects } from '../hooks/useSoundEffects';
+import { useToast } from './Toast';
 
 const PROGRAM_ID = new PublicKey("4Mw572DpPh5UWWx9ic4sZBtG8UJRBujJPXrE2pcwvBzw");
 
@@ -22,6 +23,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
     const { connection } = useConnection();
     const [betAmount, setBetAmount] = useState(0.005);
     const { play } = useSoundEffects();
+    const { showToast } = useToast();
 
     // Profile stats for inline display
     const [profileStats, setProfileStats] = useState<{
@@ -313,7 +315,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             const simulation = await connection.simulateTransaction(tx);
             if (simulation.value.err) {
                 console.error("Simulation failed:", simulation.value.logs);
-                alert(`Simulation failed: ${simulation.value.logs?.join('\n')}`);
+                showToast(`Simulation failed: ${simulation.value.logs?.[0] || 'Unknown'}`, 'error');
                 setIsBetting(false);
                 return;
             }
@@ -325,11 +327,11 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             await registerBetToServer(poolData.poolPda, { side: color, amount: betAmount }, sig);
 
             play('bet'); // Play bet sound
-            alert(`Bet placed on ${color.toUpperCase()}! TX: ${sig.slice(0, 8)}...`);
+            showToast(`Bet placed on ${color.toUpperCase()}! TX: ${sig.slice(0, 8)}...`, 'success');
 
         } catch (e: any) {
             console.error("Bet error:", e);
-            alert(`Failed: ${e?.message || 'Unknown error'}`);
+            showToast(`Bet failed: ${e?.message || 'Unknown error'}`, 'error');
         } finally {
             setIsBetting(false);
         }
@@ -369,7 +371,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             const simulation = await connection.simulateTransaction(tx);
             if (simulation.value.err) {
                 console.error("Claim simulation failed:", simulation.value.logs);
-                alert(`Claim simulation failed: ${simulation.value.logs?.join('\n')}`);
+                showToast(`Claim simulation failed`, 'error');
                 setIsClaiming(false);
                 return;
             }
@@ -381,13 +383,13 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             await markClaimedOnServer(claimStatus.poolPda);
 
             play('bet'); // Play sound on successful claim
-            alert(`Winnings claimed! TX: ${sig.slice(0, 8)}...`);
+            showToast(`Winnings claimed! TX: ${sig.slice(0, 8)}...`, 'success');
             setUserBet(null);
             setClaimStatus(null);
 
         } catch (e: any) {
             console.error("Claim error:", e);
-            alert(`Claim failed: ${e?.message || 'Unknown error'}`);
+            showToast(`Claim failed: ${e?.message || 'Unknown error'}`, 'error');
         } finally {
             setIsClaiming(false);
         }
