@@ -65,12 +65,12 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
         <ToastContext.Provider value={{ showToast }}>
             {children}
 
-            {/* Toast Container - Bottom Left */}
-            <div className="fixed bottom-20 left-4 z-50 flex flex-col gap-2 max-w-sm">
+            {/* Toast Container - Bottom Right */}
+            <div className="fixed bottom-20 right-4 z-50 flex flex-col gap-2 max-w-sm">
                 {toasts.map(toast => (
                     <div
                         key={toast.id}
-                        className={`flex items-center gap-3 bg-slate-900/95 backdrop-blur-sm border ${getBorderColor(toast.type)} rounded-lg px-4 py-3 shadow-lg animate-in slide-in-from-left duration-300`}
+                        className={`flex items-center gap-3 bg-slate-900/95 backdrop-blur-sm border ${getBorderColor(toast.type)} rounded-lg px-4 py-3 shadow-lg animate-in slide-in-from-right duration-300`}
                     >
                         {getIcon(toast.type)}
                         <p className="text-white text-sm flex-1">{toast.message}</p>
