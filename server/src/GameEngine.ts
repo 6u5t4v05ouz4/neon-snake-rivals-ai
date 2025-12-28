@@ -100,44 +100,90 @@ export class GameEngine {
             let winner: string | null = this.gameState.winner;
             let stateChanged = false;
 
-            // 1. Move Snakes
-            nextSnakes.forEach(snake => {
+            // 1. SIMULTANEOUS MOVEMENT - Calculate all moves first, then apply together
+            // This prevents first-mover advantage (fixes Cyan bias)
+
+            interface PendingMove {
+                snakeIndex: number;
+                newHead: Point;
+                direction: Direction;
+                ateFood: boolean;
+            }
+
+            const pendingMoves: PendingMove[] = [];
+            const snakesReadyToMove: number[] = [];
+
+            // Phase 1A: Determine which snakes are ready to move and calculate their moves
+            nextSnakes.forEach((snake, index) => {
                 if (snake.eliminated) return;
 
                 const speed = this.calculateSnakeSpeed(snake.score);
                 if (now - snake.lastMoveTime < speed) return;
 
+                snakesReadyToMove.push(index);
                 stateChanged = true;
-                snake.lastMoveTime = now;
+            });
 
-                // AI Decision
-                snake.direction = getBestMove(snake, nextSnakes, nextFood);
+            // Phase 1B: Calculate AI decisions for all snakes that are ready (before any moves applied)
+            snakesReadyToMove.forEach(index => {
+                const snake = nextSnakes[index];
+
+                // AI Decision (calculated on current state, before any moves applied)
+                const direction = getBestMove(snake, nextSnakes, nextFood);
 
                 const head = snake.body[0];
                 let newHead = { ...head };
 
-                switch (snake.direction) {
+                switch (direction) {
                     case Direction.UP: newHead.y -= 1; break;
                     case Direction.DOWN: newHead.y += 1; break;
                     case Direction.LEFT: newHead.x -= 1; break;
                     case Direction.RIGHT: newHead.x += 1; break;
                 }
 
-                // Check Collision with Food
-                if (newHead.x === nextFood.x && newHead.y === nextFood.y) {
+                // Check if this move would eat food (but don't apply yet)
+                const ateFood = newHead.x === nextFood.x && newHead.y === nextFood.y;
+
+                pendingMoves.push({
+                    snakeIndex: index,
+                    newHead,
+                    direction,
+                    ateFood
+                });
+            });
+
+            // Phase 1C: Check for simultaneous food collision (both reach food at same time)
+            const foodEaters = pendingMoves.filter(m => m.ateFood);
+            let foodConsumed = false;
+
+            if (foodEaters.length === 2) {
+                // Both snakes reach food simultaneously - random winner or both get nothing
+                // Fair solution: randomly pick one to get the food
+                const luckyIndex = Math.random() < 0.5 ? 0 : 1;
+                foodEaters[luckyIndex === 0 ? 1 : 0].ateFood = false;
+            }
+
+            // Phase 1D: Apply all moves simultaneously
+            pendingMoves.forEach(move => {
+                const snake = nextSnakes[move.snakeIndex];
+                snake.lastMoveTime = now;
+                snake.direction = move.direction;
+
+                if (move.ateFood) {
                     snake.score += 1;
-                    snake.body.unshift(newHead); // Grow
-                    // Check Win Condition
-                    if (snake.score >= WIN_SCORE && !snake.eliminated) {
-                        // Trigger win logic strictly in step 3 to avoid double call
-                    }
-                    nextFood = this.spawnFood(nextSnakes);
+                    snake.body.unshift(move.newHead); // Grow
+                    foodConsumed = true;
                 } else {
                     // Move normally
                     snake.body.pop();
-                    snake.body.unshift(newHead);
+                    snake.body.unshift(move.newHead);
                 }
             });
+
+            // Spawn new food if consumed
+            if (foodConsumed) {
+                nextFood = this.spawnFood(nextSnakes);
+            }
 
             // 2. Collision Detection
             nextSnakes.forEach(snake => {
