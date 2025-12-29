@@ -63,44 +63,34 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ currentScores }) => {
                 </div>
             </div>
 
-            {/* Session Stats */}
-            {session && (
-                <div className="mb-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
-                    <h3 className="text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">Current Session</h3>
-                    <div className="space-y-1 text-xs">
-                        <div className="flex justify-between">
-                            <span className="text-slate-500">Matches</span>
-                            <span className="text-white font-mono">{session.sessionMatches}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-cyan-500">Cyan Wins</span>
-                            <span className="text-cyan-300 font-mono">{session.cyanWins}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-fuchsia-500">Magenta Wins</span>
-                            <span className="text-fuchsia-300 font-mono">{session.magentaWins}</span>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* All-Time Stats */}
-            <div className="p-3 bg-slate-800/30 rounded-lg border border-slate-700/50">
-                <h3 className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">All-Time</h3>
-                <div className="space-y-1 text-xs">
-                    <div className="flex justify-between">
-                        <span className="text-slate-500">Total Matches</span>
-                        <span className="text-slate-300 font-mono">{stats.totalMatches}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-cyan-600">Cyan Wins</span>
-                        <span className="text-cyan-400 font-mono">{stats.wins?.['CYAN VIPER'] || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-fuchsia-600">Magenta Wins</span>
-                        <span className="text-fuchsia-400 font-mono">{stats.wins?.['MAGENTA PYTHON'] || 0}</span>
-                    </div>
-                </div>
+            {/* Unified Stats Table */}
+            <div className="p-3 bg-slate-800/40 rounded-lg border border-slate-700/50">
+                <table className="w-full text-xs">
+                    <thead>
+                        <tr className="text-slate-500 uppercase text-[10px] tracking-wider">
+                            <th className="text-left pb-2"></th>
+                            <th className="text-right pb-2">Session</th>
+                            <th className="text-right pb-2">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody className="text-slate-300">
+                        <tr>
+                            <td className="text-slate-500 py-1">Matches</td>
+                            <td className="text-right font-mono">{session?.sessionMatches ?? '-'}</td>
+                            <td className="text-right font-mono">{stats.totalMatches}</td>
+                        </tr>
+                        <tr>
+                            <td className="text-cyan-500 py-1">Cyan</td>
+                            <td className="text-right font-mono text-cyan-400">{session?.cyanWins ?? '-'}</td>
+                            <td className="text-right font-mono text-cyan-400">{stats.wins?.['CYAN VIPER'] || 0}</td>
+                        </tr>
+                        <tr>
+                            <td className="text-fuchsia-500 py-1">Magenta</td>
+                            <td className="text-right font-mono text-fuchsia-400">{session?.magentaWins ?? '-'}</td>
+                            <td className="text-right font-mono text-fuchsia-400">{stats.wins?.['MAGENTA PYTHON'] || 0}</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     );
