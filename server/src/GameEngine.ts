@@ -7,11 +7,15 @@ import { scheduleBalancing, updateMakerBetResults, claimMakerWinnings } from './
 import { clearSessionChat, setActiveBattlePool, emitGameSettled } from './shared';
 import { updateUserBetResults } from './index';
 
+// Food spawn with margin - avoid corners and edges where snakes can get stuck
+const FOOD_MARGIN = 2; // Minimum distance from board edges
+
 const getRandomFreePoint = (occupiedBodies: Point[][]): Point => {
     while (true) {
         const p = {
-            x: Math.floor(Math.random() * BOARD_WIDTH),
-            y: Math.floor(Math.random() * BOARD_HEIGHT),
+            // Spawn food within safe zone (2 cells from edge)
+            x: FOOD_MARGIN + Math.floor(Math.random() * (BOARD_WIDTH - FOOD_MARGIN * 2)),
+            y: FOOD_MARGIN + Math.floor(Math.random() * (BOARD_HEIGHT - FOOD_MARGIN * 2)),
         };
         const isOccupied = occupiedBodies.some(body =>
             body.some(segment => segment.x === p.x && segment.y === p.y)
