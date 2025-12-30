@@ -17,6 +17,7 @@ import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
 import { useWallet } from '@solana/wallet-adapter-react';
 import '@solana/wallet-adapter-react-ui/styles.css';
 import { useSoundEffects } from './hooks/useSoundEffects';
+import { useRpcPing } from './hooks/useRpcPing';
 import { ToastProvider } from './components/Toast';
 
 // Inner component to use wallet hooks
@@ -26,6 +27,7 @@ const AppContent: React.FC = () => {
   const { publicKey, connected } = useWallet();
   const [userHasBet, setUserHasBet] = useState(false);
   const { play, enabled: soundEnabled, toggle: toggleSound } = useSoundEffects();
+  const rpcPing = useRpcPing('https://api.devnet.solana.com');
 
   const s1 = gameState.snakes[0];
   const s2 = gameState.snakes[1];
@@ -160,10 +162,21 @@ const AppContent: React.FC = () => {
 
       {/* Footer - Controls & Social Links */}
       <footer className="fixed bottom-4 right-4 z-40 flex items-center gap-2">
-        {/* Ping Indicator */}
+        {/* RPC Ping Indicator */}
         <div
           className="flex items-center gap-1.5 px-2.5 py-2 bg-slate-800/80 rounded-full border border-slate-600"
-          title={ping ? `Latency: ${ping}ms` : 'Connecting...'}
+          title={rpcPing ? `Solana RPC: ${rpcPing}ms` : 'Connecting to RPC...'}
+        >
+          <span className="text-[10px] text-slate-500">RPC</span>
+          <span className={`text-xs font-mono ${rpcPing !== null ? (rpcPing < 300 ? 'text-green-400' : rpcPing < 600 ? 'text-yellow-400' : 'text-red-400') : 'text-slate-500'}`}>
+            {rpcPing !== null ? `${rpcPing}ms` : '--'}
+          </span>
+        </div>
+
+        {/* WebSocket Ping Indicator */}
+        <div
+          className="flex items-center gap-1.5 px-2.5 py-2 bg-slate-800/80 rounded-full border border-slate-600"
+          title={ping ? `Server: ${ping}ms` : 'Connecting...'}
         >
           <Wifi size={14} className={ping !== null ? (ping < 100 ? 'text-green-400' : ping < 200 ? 'text-yellow-400' : 'text-red-400') : 'text-slate-500'} />
           <span className={`text-xs font-mono ${ping !== null ? (ping < 100 ? 'text-green-400' : ping < 200 ? 'text-yellow-400' : 'text-red-400') : 'text-slate-500'}`}>
