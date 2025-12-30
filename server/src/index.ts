@@ -111,11 +111,12 @@ app.use(cors({
             callback(null, true);
         } else {
             console.warn(`CORS blocked request from: ${origin}`);
-            callback(new Error('Not allowed by CORS'));
+            callback(null, false);
         }
     },
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
 }));
 
 // Apply general rate limiting to all routes
