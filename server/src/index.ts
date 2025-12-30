@@ -151,9 +151,16 @@ app.get('/stats', async (req, res) => {
             });
         }
 
+        // Get last match winner
+        const lastMatch = await prisma.match.findFirst({
+            orderBy: { createdAt: 'desc' },
+            select: { winner: true }
+        });
+
         res.json({
             totalMatches,
             wins: allTimeWins,
+            lastWinner: lastMatch?.winner || null,
             currentSession: currentSession ? {
                 id: currentSession.id,
                 startedAt: currentSession.startedAt,

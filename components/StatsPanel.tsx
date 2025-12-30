@@ -12,6 +12,7 @@ interface SessionStats {
 interface Stats {
     totalMatches: number;
     wins: Record<string, number>;
+    lastWinner: string | null;
     currentSession: SessionStats | null;
 }
 
@@ -62,6 +63,16 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ currentScores }) => {
                     <div className="text-xl font-mono text-white">{currentScores.magenta}</div>
                 </div>
             </div>
+
+            {/* Last Winner Badge */}
+            {stats.lastWinner && (
+                <div className={`text-center text-xs py-2 px-3 rounded-lg mb-4 border ${stats.lastWinner === 'CYAN VIPER'
+                        ? 'bg-cyan-900/30 border-cyan-500/50 text-cyan-400'
+                        : 'bg-fuchsia-900/30 border-fuchsia-500/50 text-fuchsia-400'
+                    }`}>
+                    🏆 Last Winner: <span className="font-bold">{stats.lastWinner === 'CYAN VIPER' ? 'CYAN' : 'MAGENTA'}</span>
+                </div>
+            )}
 
             {/* Unified Stats Table */}
             <div className="p-3 bg-slate-800/40 rounded-lg border border-slate-700/50">
