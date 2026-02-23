@@ -12,6 +12,7 @@ import pg from 'pg';
 import { getCurrentPoolInfo, createNewPool, connection, program } from './solana';
 import { initMarketMaker } from './MarketMaker';
 import { registerBetSchema, markClaimedSchema } from './validation';
+import { startRewardDistributor, getRewardPoolBalance } from './rewardDistributor';
 
 // ===== CHAT SYSTEM - Import from shared to avoid circular dependency =====
 import {
@@ -176,12 +177,21 @@ app.get('/stats', async (req, res) => {
     }
 });
 
-// Leaderboard - Top 10 bettors by net profit
+// Leaderboard - Top 10 bettors by net profit (supports ?period=daily)
 app.get('/leaderboard', async (req, res) => {
     try {
-        // Get all bets with results
+        // Daily filter: only bets from today (UTC midnight)
+        const period = req.query.period as string;
+        const whereClause: any = { result: { not: null } };
+
+        if (period === 'daily') {
+            const todayStart = new Date();
+            todayStart.setUTCHours(0, 0, 0, 0);
+            whereClause.createdAt = { gte: todayStart };
+        }
+
         const bets = await prisma.bet.findMany({
-            where: { result: { not: null } },
+            where: whereClause,
             select: {
                 walletAddress: true,
                 amount: true,
@@ -242,6 +252,32 @@ app.get('/leaderboard', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch leaderboard' });
     }
 });
+
+// Reward pool balance (50% of house wallet)
+app.get('/reward-pool', async (req, res) => {
+    try {
+        const data = await getRewardPoolBalance();
+        res.json(data);
+    } catch (e) {
+        console.error('Reward pool error:', e);
+        res.status(500).json({ error: 'Failed to get reward pool' });
+    }
+});
+
+// Reward distribution history
+app.get('/reward-history', async (req, res) => {
+    try {
+        const distributions = await prisma.rewardDistribution.findMany({
+            orderBy: { distributedAt: 'desc' },
+            take: 30,
+        });
+        res.json(distributions);
+    } catch (e) {
+        console.error('Reward history error:', e);
+        res.status(500).json({ error: 'Failed to get reward history' });
+    }
+});
+
 
 // Profile statistics for a wallet
 app.get('/profile/:walletAddress', async (req, res) => {
@@ -639,6 +675,9 @@ async function startServer() {
             console.log('Client disconnected:', socket.id);
         });
     });
+
+    // Start daily reward distributor
+    startRewardDistributor(prisma);
 
     server.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);

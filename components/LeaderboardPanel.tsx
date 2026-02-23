@@ -22,11 +22,12 @@ interface LeaderboardPanelProps {
 const LeaderboardPanel: React.FC<LeaderboardPanelProps> = ({ currentWallet }) => {
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
     const [loading, setLoading] = useState(true);
+    const [rewardPool, setRewardPool] = useState<{ balance: number; rewardPool: number } | null>(null);
 
     useEffect(() => {
         const fetchLeaderboard = async () => {
             try {
-                const res = await fetch(`${SERVER_URL}/leaderboard`);
+                const res = await fetch(`${SERVER_URL}/leaderboard?period=daily`);
                 if (res.ok) {
                     const data = await res.json();
                     setLeaderboard(data);
@@ -38,9 +39,24 @@ const LeaderboardPanel: React.FC<LeaderboardPanelProps> = ({ currentWallet }) =>
             }
         };
 
+        const fetchRewardPool = async () => {
+            try {
+                const res = await fetch(`${SERVER_URL}/reward-pool`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setRewardPool(data);
+                }
+            } catch (e) {
+                console.error('Failed to fetch reward pool:', e);
+            }
+        };
+
         fetchLeaderboard();
-        // Refresh every 30 seconds
-        const interval = setInterval(fetchLeaderboard, 30000);
+        fetchRewardPool();
+        const interval = setInterval(() => {
+            fetchLeaderboard();
+            fetchRewardPool();
+        }, 30000);
         return () => clearInterval(interval);
     }, []);
 
@@ -60,10 +76,27 @@ const LeaderboardPanel: React.FC<LeaderboardPanelProps> = ({ currentWallet }) =>
 
     return (
         <div className="bg-slate-900/90 backdrop-blur border border-slate-700 rounded-lg p-3 w-full">
+            {/* Prize Pool Banner */}
+            {rewardPool && rewardPool.rewardPool > 0 && (
+                <div className="mb-3 p-2 bg-gradient-to-r from-amber-900/40 to-yellow-900/30 rounded-lg border border-amber-500/40 text-center">
+                    <div className="text-[10px] text-amber-400/80 font-semibold uppercase tracking-wider">Today's Prize Pool</div>
+                    <div className="text-xl font-bold text-amber-300">
+                        {rewardPool.rewardPool.toFixed(3)} SOL
+                    </div>
+                    <div className="flex justify-center gap-3 mt-1 text-[9px] text-slate-400">
+                        <span>🥇 50%</span>
+                        <span>🥈 30%</span>
+                        <span>🥉 20%</span>
+                    </div>
+                    <div className="text-[9px] text-slate-500 mt-0.5">Distributes daily at 00:00 UTC</div>
+                </div>
+            )}
+
             {/* Header */}
             <div className="flex items-center gap-2 mb-3 border-b border-slate-700 pb-2">
                 <Trophy size={18} className="text-yellow-400" />
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Top Bettors</h3>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Daily Top Bettors</h3>
+                <span className="ml-auto text-[9px] bg-indigo-900/50 text-indigo-400 px-1.5 py-0.5 rounded-full border border-indigo-500/30">24H</span>
             </div>
 
             {/* Loading */}

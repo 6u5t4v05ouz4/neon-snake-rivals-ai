@@ -63,3 +63,15 @@ model SettledPool {
 
   @@index([poolPda])
 }
+
+model RewardDistribution {
+  id            Int      @id @default(autoincrement())
+  walletAddress String
+  rank          Int
+  amount        Float
+  txSignature   String
+  distributedAt DateTime @default(now())
+
+  @@index([walletAddress])
+  @@index([distributedAt])
+}
