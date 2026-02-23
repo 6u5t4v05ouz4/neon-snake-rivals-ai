@@ -247,7 +247,18 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
 
     // Check for bet on CURRENT pool when pool changes
     useEffect(() => {
-        if (!connected || !publicKey || !poolInfo?.poolPda) return;
+        if (!connected || !publicKey) return;
+
+        // If pool was cleared (settled) or doesn't exist yet, reset userBet so user can place new bet
+        if (!poolInfo?.poolPda) {
+            setUserBet(null);
+            return;
+        }
+
+        // If userBet is from a DIFFERENT pool (old settled pool), clear it
+        if (userBet?.poolPda && userBet.poolPda !== poolInfo.poolPda) {
+            setUserBet(null);
+        }
 
         const checkCurrentPoolBet = async () => {
             try {
