@@ -195,6 +195,8 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
         winner?: string;
         userBet?: any;
         reason?: string;
+        pendingClaims?: { poolPda: string; side: string; amount: number; estimatedWin: number; winner: string; createdAt: string }[];
+        totalClaimable?: number;
     } | null>(null);
 
     // Check claim status from server when wallet is connected (for settled pool)
@@ -364,11 +366,15 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
 
     const [isClaiming, setIsClaiming] = useState(false);
 
-    const claimWinnings = async () => {
-        if (!connected || !publicKey || !anchorWallet || !claimStatus?.poolPda) {
-            alert("Cannot claim: missing wallet or settled pool");
+    // Batch claim all pending wins in one Solana transaction
+    const claimAllWinnings = async () => {
+        if (!publicKey || !connected || !anchorWallet) {
+            alert("Connect wallet first!");
             return;
         }
+
+        const claims = claimStatus?.pendingClaims;
+        if (!claims || claims.length === 0) return;
 
         setIsClaiming(true);
         try {
@@ -376,26 +382,29 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             anchor.setProvider(provider);
             const program = new anchor.Program(idl as unknown as anchor.Idl, provider);
 
-            const poolPda = new PublicKey(claimStatus.poolPda);
+            const tx = new anchor.web3.Transaction();
 
-
-
-            const tx = await program.methods.claimWinnings()
-                .accounts({
-                    pool: poolPda,
-                    user: publicKey,
-                    systemProgram: anchor.web3.SystemProgram.programId,
-                })
-                .transaction();
+            // Add one claimWinnings instruction per pending pool
+            for (const claim of claims) {
+                const poolPda = new PublicKey(claim.poolPda);
+                const ix = await program.methods.claimWinnings()
+                    .accounts({
+                        pool: poolPda,
+                        user: publicKey,
+                        systemProgram: anchor.web3.SystemProgram.programId,
+                    })
+                    .instruction();
+                tx.add(ix);
+            }
 
             const { blockhash } = await connection.getLatestBlockhash();
             tx.recentBlockhash = blockhash;
             tx.feePayer = publicKey;
 
-            // Simulate first for better error messages
+            // Simulate first
             const simulation = await connection.simulateTransaction(tx);
             if (simulation.value.err) {
-                console.error("Claim simulation failed:", simulation.value.logs);
+                console.error("Batch claim simulation failed:", simulation.value.logs);
                 showToast(`Claim simulation failed`, 'error');
                 setIsClaiming(false);
                 return;
@@ -404,16 +413,19 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             const sig = await sendTransaction(tx, connection);
             await connection.confirmTransaction(sig, "confirmed");
 
-            // Mark as claimed on server
-            await markClaimedOnServer(claimStatus.poolPda);
+            // Mark ALL as claimed on server
+            for (const claim of claims) {
+                await markClaimedOnServer(claim.poolPda);
+            }
 
-            play('bet'); // Play sound on successful claim
-            showToast(`Winnings claimed! TX: ${sig.slice(0, 8)}...`, 'success');
+            play('bet');
+            showToast(`${claims.length} win(s) claimed! TX: ${sig.slice(0, 8)}...`, 'success');
             setUserBet(null);
             setClaimStatus(null);
+            fetchProfileStats();
 
         } catch (e: any) {
-            console.error("Claim error:", e);
+            console.error("Batch claim error:", e);
             showToast(`Claim failed: ${e?.message || 'Unknown error'}`, 'error');
         } finally {
             setIsClaiming(false);
@@ -545,34 +557,54 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
                 <p className="text-center text-slate-500 text-xs">Connect wallet to bet</p>
             )}
 
-            {/* Settled Pool - Claim Winnings UI (using server claimStatus) */}
-            {claimStatus && connected && claimStatus.userBet && (
+            {/* Pending Claims UI */}
+            {claimStatus && connected && claimStatus.pendingClaims && claimStatus.pendingClaims.length > 0 && (
                 <div className="mt-4 p-3 bg-gradient-to-b from-amber-900/30 to-orange-900/20 rounded-lg border border-amber-500/50">
-                    <h3 className="text-sm font-bold text-amber-300 mb-2 text-center">
-                        🏆 GAME SETTLED
+                    <h3 className="text-sm font-bold text-amber-300 mb-2 text-center flex items-center justify-center gap-2">
+                        🏆 {claimStatus.pendingClaims.length} PENDING WIN{claimStatus.pendingClaims.length > 1 ? 'S' : ''}
+                        {claimStatus.pendingClaims.length > 1 && (
+                            <span className="bg-amber-500 text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
+                                {claimStatus.pendingClaims.length}
+                            </span>
+                        )}
                     </h3>
-                    <div className={`text-center mb-3 p-2 rounded ${claimStatus.winner === 'cyan' ? 'bg-cyan-900/40' : 'bg-fuchsia-900/40'
-                        }`}>
-                        <div className="text-xs text-white/70">WINNER</div>
-                        <div className={`text-xl font-bold ${claimStatus.winner === 'cyan' ? 'text-cyan-300' : 'text-fuchsia-300'
-                            }`}>
-                            {claimStatus.winner?.toUpperCase()}
+
+                    {/* Claims list */}
+                    <div className="space-y-1 mb-3 max-h-32 overflow-y-auto">
+                        {claimStatus.pendingClaims.map((claim, i) => (
+                            <div key={claim.poolPda} className={`flex items-center justify-between p-1.5 rounded text-xs ${claim.winner === 'cyan' ? 'bg-cyan-900/30 border border-cyan-500/20' : 'bg-fuchsia-900/30 border border-fuchsia-500/20'
+                                }`}>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-green-400">✓</span>
+                                    <span className={claim.winner === 'cyan' ? 'text-cyan-400' : 'text-fuchsia-400'}>
+                                        {claim.side.toUpperCase()}
+                                    </span>
+                                </div>
+                                <span className="text-emerald-400 font-mono font-bold">
+                                    +{claim.estimatedWin.toFixed(3)} SOL
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Total + Claim All Button */}
+                    <div className="text-center mb-2">
+                        <div className="text-[10px] text-slate-400">TOTAL CLAIMABLE</div>
+                        <div className="text-xl font-bold text-emerald-400">
+                            ~{(claimStatus.totalClaimable || 0).toFixed(3)} SOL
                         </div>
                     </div>
 
-                    {canClaim ? (
-                        <button
-                            onClick={claimWinnings}
-                            disabled={isClaiming}
-                            className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-lg border border-amber-400/50 transition-all shadow-lg"
-                        >
-                            {isClaiming ? 'Claiming...' : '💰 CLAIM WINNINGS'}
-                        </button>
-                    ) : (
-                        <div className="text-center text-slate-400 text-sm py-2">
-                            😢 {claimStatus.reason || 'Better luck next time!'}
-                        </div>
-                    )}
+                    <button
+                        onClick={claimAllWinnings}
+                        disabled={isClaiming}
+                        className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-lg border border-amber-400/50 transition-all shadow-lg shadow-amber-900/30 hover:shadow-amber-800/40"
+                    >
+                        {isClaiming
+                            ? 'Claiming...'
+                            : `⚡ CLAIM ALL (${(claimStatus.totalClaimable || 0).toFixed(3)} SOL)`
+                        }
+                    </button>
                 </div>
             )}
 
