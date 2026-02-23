@@ -216,3 +216,9 @@ export function getLastSettledPool() {
         winner: lastSettledPool.winner
     };
 }
+
+// Clear current pool after settlement so /current-pool returns null for next round
+export function clearCurrentPool() {
+    console.log(`🧹 Clearing current pool (was: ${currentPoolPda?.toBase58() || 'null'})`);
+    currentPoolPda = null;
+}

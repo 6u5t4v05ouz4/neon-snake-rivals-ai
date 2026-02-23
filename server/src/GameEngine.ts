@@ -2,7 +2,7 @@ import { GameState, Snake, GameStatus, Direction, Point } from './types';
 import { PrismaClient } from '@prisma/client';
 import { BOARD_WIDTH, BOARD_HEIGHT, SNAKE_1_START, SNAKE_2_START, MIN_SPEED, START_GAME_SPEED, SPEED_DECREMENT, WIN_SCORE, RESTART_DELAY } from './constants';
 import { getBestMove } from './aiLogic';
-import { createNewPool, settleGame, getPoolInfo, getCurrentPoolInfo } from './solana';
+import { createNewPool, settleGame, getPoolInfo, getCurrentPoolInfo, clearCurrentPool } from './solana';
 import { scheduleBalancing, updateMakerBetResults, claimMakerWinnings } from './MarketMaker';
 import { clearSessionChat, setActiveBattlePool, emitGameSettled } from './shared';
 import { updateUserBetResults } from './index';
@@ -245,6 +245,9 @@ export class GameEngine {
                         emitGameSettled(poolPda, 'magenta');
                         setTimeout(() => claimMakerWinnings(poolPda), 2000);
                     }
+                    // Pool is settled — clear it so next round starts fresh
+                    this.poolHasBothSides = false;
+                    clearCurrentPool();
                 } else {
                     console.log(`⏭️ Skipping settle (poolPda=${poolPda ? 'yes' : 'no'}, bothSides=${this.poolHasBothSides})`);
                 }
@@ -292,6 +295,9 @@ export class GameEngine {
                     updateUserBetResults(poolPda, winnerColor);
                     emitGameSettled(poolPda, winnerColor);
                     setTimeout(() => claimMakerWinnings(poolPda), 2000);
+                    // Pool is settled — clear it so next round starts fresh
+                    this.poolHasBothSides = false;
+                    clearCurrentPool();
                 } else {
                     console.log(`⏭️ Skipping tiebreak settle (poolPda=${poolPda ? 'yes' : 'no'}, bothSides=${this.poolHasBothSides})`);
                 }
@@ -315,6 +321,9 @@ export class GameEngine {
                         emitGameSettled(poolPda, 'magenta');
                         setTimeout(() => claimMakerWinnings(poolPda), 2000);
                     }
+                    // Pool is settled — clear it so next round starts fresh
+                    this.poolHasBothSides = false;
+                    clearCurrentPool();
                 } else {
                     console.log(`⏭️ Skipping elimination settle (poolPda=${poolPda ? 'yes' : 'no'}, bothSides=${this.poolHasBothSides})`);
                 }
