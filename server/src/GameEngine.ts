@@ -245,9 +245,49 @@ export class GameEngine {
                     setTimeout(() => claimMakerWinnings(poolPda), 2000);
                 }
             } else if (aliveSnakes.length === 0) {
+                // Both snakes died simultaneously - TIEBREAKER cascade
                 newStatus = GameStatus.GAME_OVER;
-                // Tie breaker or Draw
-                winner = null;
+
+                const snake1 = nextSnakes[0];
+                const snake2 = nextSnakes[1];
+
+                let tieWinner: typeof snake1 | null = null;
+                let tieReason = '';
+
+                // Tiebreaker 1: Higher score wins
+                if (snake1.score > snake2.score) {
+                    tieWinner = snake1;
+                    tieReason = `score ${snake1.score} vs ${snake2.score}`;
+                } else if (snake2.score > snake1.score) {
+                    tieWinner = snake2;
+                    tieReason = `score ${snake2.score} vs ${snake1.score}`;
+                }
+                // Tiebreaker 2: Longer body wins (if scores are equal)
+                else if (snake1.body.length > snake2.body.length) {
+                    tieWinner = snake1;
+                    tieReason = `body length ${snake1.body.length} vs ${snake2.body.length}`;
+                } else if (snake2.body.length > snake1.body.length) {
+                    tieWinner = snake2;
+                    tieReason = `body length ${snake2.body.length} vs ${snake1.body.length}`;
+                }
+                // Tiebreaker 3: Random coin flip (last resort, avoids draw)
+                else {
+                    tieWinner = Math.random() < 0.5 ? snake1 : snake2;
+                    tieReason = `coin flip (${snake1.score} pts each, ${snake1.body.length} len each)`;
+                }
+
+                winner = tieWinner.name;
+                console.log(`TIEBREAKER: ${tieWinner.name} wins by ${tieReason}`);
+
+                // Settle on-chain with tiebreak winner
+                const poolPda = getCurrentPoolInfo().poolPda || '';
+                const winnerColor = tieWinner.colorClass === 'cyan' ? 'cyan' : 'magenta';
+                settleGame(winnerColor);
+                updateMakerBetResults(poolPda, winnerColor);
+                updateUserBetResults(poolPda, winnerColor);
+                emitGameSettled(poolPda, winnerColor);
+                setTimeout(() => claimMakerWinnings(poolPda), 2000);
+
             } else if (aliveSnakes.length === 1 && nextSnakes.length > 1) {
                 // Last man standing
                 newStatus = GameStatus.GAME_OVER;
