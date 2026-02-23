@@ -53,3 +53,13 @@ model MakerBet {
   
   @@index([poolPda])
 }
+
+model SettledPool {
+  id        Int      @id @default(autoincrement())
+  poolPda   String   @unique  // Solana pool PDA (base58)
+  gameId    String             // Game ID that created this pool
+  winner    String             // "cyan" or "magenta"
+  settledAt DateTime @default(now())
+
+  @@index([poolPda])
+}

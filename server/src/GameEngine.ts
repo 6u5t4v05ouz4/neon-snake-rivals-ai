@@ -247,6 +247,8 @@ export class GameEngine {
                     }
                     // Pool is settled — clear it so next round starts fresh
                     this.poolHasBothSides = false;
+                    const winColor1 = scoreWinner.colorClass === 'cyan' ? 'cyan' : 'magenta';
+                    this.saveSettledPool(poolPda, winColor1);
                     clearCurrentPool();
                 } else {
                     console.log(`⏭️ Skipping settle (poolPda=${poolPda ? 'yes' : 'no'}, bothSides=${this.poolHasBothSides})`);
@@ -297,6 +299,8 @@ export class GameEngine {
                     setTimeout(() => claimMakerWinnings(poolPda), 2000);
                     // Pool is settled — clear it so next round starts fresh
                     this.poolHasBothSides = false;
+                    const tieWinColor = tieWinner.colorClass === 'cyan' ? 'cyan' : 'magenta';
+                    this.saveSettledPool(poolPda, tieWinColor);
                     clearCurrentPool();
                 } else {
                     console.log(`⏭️ Skipping tiebreak settle (poolPda=${poolPda ? 'yes' : 'no'}, bothSides=${this.poolHasBothSides})`);
@@ -323,6 +327,8 @@ export class GameEngine {
                     }
                     // Pool is settled — clear it so next round starts fresh
                     this.poolHasBothSides = false;
+                    const elimWinColor = aliveSnakes[0].colorClass === 'cyan' ? 'cyan' : 'magenta';
+                    this.saveSettledPool(poolPda, elimWinColor);
                     clearCurrentPool();
                 } else {
                     console.log(`⏭️ Skipping elimination settle (poolPda=${poolPda ? 'yes' : 'no'}, bothSides=${this.poolHasBothSides})`);
@@ -443,6 +449,23 @@ export class GameEngine {
             console.log('Match saved:', winner);
         } catch (e) {
             console.error('Failed to save match:', e);
+        }
+    }
+    private async saveSettledPool(poolPda: string, winner: string) {
+        try {
+            const poolInfo = getCurrentPoolInfo();
+            await this.prisma.settledPool.upsert({
+                where: { poolPda },
+                update: { winner },
+                create: {
+                    poolPda,
+                    gameId: String(poolInfo.gameId),
+                    winner,
+                },
+            });
+            console.log(`💾 Settled pool saved to DB: ${poolPda} winner=${winner}`);
+        } catch (e) {
+            console.error('Failed to save settled pool:', e);
         }
     }
 }

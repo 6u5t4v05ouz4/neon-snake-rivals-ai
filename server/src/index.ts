@@ -424,51 +424,57 @@ app.get('/my-bets/:walletAddress', async (req, res) => {
     }
 });
 
-// Check if wallet can claim from last settled pool
+// Check if wallet can claim from any settled pool (persisted in DB)
 app.get('/can-claim/:walletAddress', async (req, res) => {
     try {
-        const { getLastSettledPool } = require('./solana');
-        const lastSettled = getLastSettledPool();
+        const walletAddress = req.params.walletAddress;
 
-        console.log('Can-claim check:', {
-            walletAddress: req.params.walletAddress,
-            lastSettled
-        });
-
-        if (!lastSettled || !lastSettled.poolPda) {
-            return res.json({ canClaim: false, reason: 'No settled pool' });
-        }
-
-        // Find bet for this wallet on the settled pool
-        const bet = await prisma.bet.findUnique({
+        // Find all unclaimed bets for this wallet
+        const unclaimedBets = await prisma.bet.findMany({
             where: {
-                poolPda_walletAddress: {
-                    poolPda: lastSettled.poolPda,
-                    walletAddress: req.params.walletAddress
-                }
-            }
+                walletAddress,
+                claimed: false,
+                result: 'win',
+            },
+            orderBy: { createdAt: 'desc' },
         });
 
-        console.log('Bet found:', bet);
-
-        if (!bet) {
-            return res.json({ canClaim: false, reason: 'No bet on settled pool' });
+        if (unclaimedBets.length === 0) {
+            return res.json({ canClaim: false, reason: 'No unclaimed winning bets' });
         }
 
-        if (bet.claimed) {
-            return res.json({ canClaim: false, reason: 'Already claimed' });
-        }
+        // Find the most recent unclaimed winning bet
+        const bet = unclaimedBets[0];
 
-        const canClaim = bet.side === lastSettled.winner;
+        // Verify the pool was actually settled (in DB)
+        const settledPool = await prisma.settledPool.findUnique({
+            where: { poolPda: bet.poolPda },
+        });
+
+        if (!settledPool) {
+            // Fallback: check in-memory lastSettledPool (backward compat)
+            const { getLastSettledPool } = require('./solana');
+            const lastSettled = getLastSettledPool();
+            if (lastSettled && lastSettled.poolPda === bet.poolPda) {
+                return res.json({
+                    canClaim: true,
+                    poolPda: lastSettled.poolPda,
+                    winner: lastSettled.winner,
+                    userBet: bet,
+                    reason: 'Winner! (in-memory fallback)',
+                });
+            }
+            return res.json({ canClaim: false, reason: 'Pool settlement not found' });
+        }
 
         const response = {
-            canClaim,
-            poolPda: lastSettled.poolPda,
-            winner: lastSettled.winner,
+            canClaim: true,
+            poolPda: settledPool.poolPda,
+            winner: settledPool.winner,
             userBet: bet,
-            reason: canClaim ? 'Winner!' : 'Did not bet on winner'
+            reason: 'Winner!',
         };
-        console.log('Can-claim response:', response);
+        console.log('Can-claim response:', { wallet: walletAddress.slice(0, 8), ...response });
         res.json(response);
     } catch (e) {
         console.error('Error checking claim:', e);
