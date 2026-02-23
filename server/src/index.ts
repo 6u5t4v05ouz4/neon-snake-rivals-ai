@@ -9,7 +9,7 @@ import { GameEngine } from './GameEngine';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
-import { getCurrentPoolInfo, connection, program } from './solana';
+import { getCurrentPoolInfo, createNewPool, connection, program } from './solana';
 import { initMarketMaker } from './MarketMaker';
 import { registerBetSchema, markClaimedSchema } from './validation';
 
@@ -327,6 +327,28 @@ app.get('/profile/:walletAddress', async (req, res) => {
 app.get('/current-pool', (req, res) => {
     const poolInfo = getCurrentPoolInfo();
     res.json(poolInfo);
+});
+
+// On-demand pool creation: returns existing pool or creates new one
+app.post('/ensure-pool', async (req, res) => {
+    try {
+        const poolInfo = getCurrentPoolInfo();
+        if (poolInfo.poolPda) {
+            // Pool already exists, reuse it
+            return res.json(poolInfo);
+        }
+        // No pool yet — create one
+        console.log('🏗️ /ensure-pool: Creating new pool on-demand...');
+        const result = await createNewPool();
+        if (!result) {
+            return res.status(500).json({ error: 'Failed to create pool on-chain' });
+        }
+        console.log(`✅ /ensure-pool: Pool created: ${result.poolPda}`);
+        res.json(result);
+    } catch (e) {
+        console.error('Error in /ensure-pool:', e);
+        res.status(500).json({ error: 'Failed to ensure pool' });
+    }
 });
 
 // Pool info with on-chain data

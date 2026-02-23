@@ -288,9 +288,23 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
             const poolData = await poolRes.json();
 
             if (!poolData.poolPda) {
-                alert("No active betting pool! Wait for next match countdown.");
-                setIsBetting(false);
-                return;
+                // No pool yet — create one on-demand
+                showToast('Criando pool de apostas...', 'info');
+                try {
+                    const ensureRes = await fetch(`${SERVER_URL}/ensure-pool`, { method: 'POST' });
+                    const ensureData = await ensureRes.json();
+                    if (!ensureData.poolPda) {
+                        showToast('Falha ao criar pool. Tente novamente.', 'error');
+                        setIsBetting(false);
+                        return;
+                    }
+                    poolData.poolPda = ensureData.poolPda;
+                    showToast('Pool criada! Processando aposta...', 'success');
+                } catch (e) {
+                    showToast('Erro ao criar pool. Tente novamente.', 'error');
+                    setIsBetting(false);
+                    return;
+                }
             }
 
             const provider = new anchor.AnchorProvider(connection, anchorWallet, { commitment: "confirmed" });

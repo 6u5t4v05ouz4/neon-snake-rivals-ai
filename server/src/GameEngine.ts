@@ -68,6 +68,7 @@ export class GameEngine {
     private ioCallback: (state: GameState) => void;
     private prisma: PrismaClient;
     private sessionId: number;
+    public poolHasBothSides: boolean = false;
 
     constructor(ioCallback: (state: GameState) => void, prisma: PrismaClient, sessionId: number) {
         this.gameState = createInitialState();
@@ -228,21 +229,24 @@ export class GameEngine {
             if (scoreWinner) {
                 newStatus = GameStatus.GAME_OVER;
                 winner = scoreWinner.name;
-                // Solana Settle - lastSettledPool is saved synchronously before RPC
+                // Only settle on-chain if pool exists AND both sides have bets
                 const poolPda = getCurrentPoolInfo().poolPda || '';
-                if (scoreWinner.colorClass === 'cyan') {
-                    settleGame('cyan');
-                    updateMakerBetResults(poolPda, 'cyan');
-                    updateUserBetResults(poolPda, 'cyan');
-                    emitGameSettled(poolPda, 'cyan'); // Notify clients immediately
-                    // Auto-claim MM winnings after settle (wait 2s for tx to confirm)
-                    setTimeout(() => claimMakerWinnings(poolPda), 2000);
-                } else if (scoreWinner.colorClass === 'fuchsia') {
-                    settleGame('magenta');
-                    updateMakerBetResults(poolPda, 'magenta');
-                    updateUserBetResults(poolPda, 'magenta');
-                    emitGameSettled(poolPda, 'magenta'); // Notify clients immediately
-                    setTimeout(() => claimMakerWinnings(poolPda), 2000);
+                if (poolPda && this.poolHasBothSides) {
+                    if (scoreWinner.colorClass === 'cyan') {
+                        settleGame('cyan');
+                        updateMakerBetResults(poolPda, 'cyan');
+                        updateUserBetResults(poolPda, 'cyan');
+                        emitGameSettled(poolPda, 'cyan');
+                        setTimeout(() => claimMakerWinnings(poolPda), 2000);
+                    } else if (scoreWinner.colorClass === 'fuchsia') {
+                        settleGame('magenta');
+                        updateMakerBetResults(poolPda, 'magenta');
+                        updateUserBetResults(poolPda, 'magenta');
+                        emitGameSettled(poolPda, 'magenta');
+                        setTimeout(() => claimMakerWinnings(poolPda), 2000);
+                    }
+                } else {
+                    console.log(`⏭️ Skipping settle (poolPda=${poolPda ? 'yes' : 'no'}, bothSides=${this.poolHasBothSides})`);
                 }
             } else if (aliveSnakes.length === 0) {
                 // Both snakes died simultaneously - TIEBREAKER cascade
@@ -279,33 +283,40 @@ export class GameEngine {
                 winner = tieWinner.name;
                 console.log(`TIEBREAKER: ${tieWinner.name} wins by ${tieReason}`);
 
-                // Settle on-chain with tiebreak winner
+                // Only settle on-chain if pool exists AND both sides have bets
                 const poolPda = getCurrentPoolInfo().poolPda || '';
-                const winnerColor = tieWinner.colorClass === 'cyan' ? 'cyan' : 'magenta';
-                settleGame(winnerColor);
-                updateMakerBetResults(poolPda, winnerColor);
-                updateUserBetResults(poolPda, winnerColor);
-                emitGameSettled(poolPda, winnerColor);
-                setTimeout(() => claimMakerWinnings(poolPda), 2000);
+                if (poolPda && this.poolHasBothSides) {
+                    const winnerColor = tieWinner.colorClass === 'cyan' ? 'cyan' : 'magenta';
+                    settleGame(winnerColor);
+                    updateMakerBetResults(poolPda, winnerColor);
+                    updateUserBetResults(poolPda, winnerColor);
+                    emitGameSettled(poolPda, winnerColor);
+                    setTimeout(() => claimMakerWinnings(poolPda), 2000);
+                } else {
+                    console.log(`⏭️ Skipping tiebreak settle (poolPda=${poolPda ? 'yes' : 'no'}, bothSides=${this.poolHasBothSides})`);
+                }
 
             } else if (aliveSnakes.length === 1 && nextSnakes.length > 1) {
                 // Last man standing
                 newStatus = GameStatus.GAME_OVER;
                 winner = aliveSnakes[0].name;
-                // Winner by elimination - lastSettledPool saved synchronously
                 const poolPda = getCurrentPoolInfo().poolPda || '';
-                if (aliveSnakes[0].colorClass === "cyan") {
-                    settleGame("cyan");
-                    updateMakerBetResults(poolPda, 'cyan');
-                    updateUserBetResults(poolPda, 'cyan');
-                    emitGameSettled(poolPda, 'cyan'); // Notify clients immediately
-                    setTimeout(() => claimMakerWinnings(poolPda), 2000);
-                } else if (aliveSnakes[0].colorClass === "fuchsia") {
-                    settleGame("magenta");
-                    updateMakerBetResults(poolPda, 'magenta');
-                    updateUserBetResults(poolPda, 'magenta');
-                    emitGameSettled(poolPda, 'magenta'); // Notify clients immediately
-                    setTimeout(() => claimMakerWinnings(poolPda), 2000);
+                if (poolPda && this.poolHasBothSides) {
+                    if (aliveSnakes[0].colorClass === "cyan") {
+                        settleGame("cyan");
+                        updateMakerBetResults(poolPda, 'cyan');
+                        updateUserBetResults(poolPda, 'cyan');
+                        emitGameSettled(poolPda, 'cyan');
+                        setTimeout(() => claimMakerWinnings(poolPda), 2000);
+                    } else if (aliveSnakes[0].colorClass === "fuchsia") {
+                        settleGame("magenta");
+                        updateMakerBetResults(poolPda, 'magenta');
+                        updateUserBetResults(poolPda, 'magenta');
+                        emitGameSettled(poolPda, 'magenta');
+                        setTimeout(() => claimMakerWinnings(poolPda), 2000);
+                    }
+                } else {
+                    console.log(`⏭️ Skipping elimination settle (poolPda=${poolPda ? 'yes' : 'no'}, bothSides=${this.poolHasBothSides})`);
                 }
             }
 
@@ -345,23 +356,34 @@ export class GameEngine {
     private async startCountdown() {
         if (this.countdownInterval) clearInterval(this.countdownInterval);
 
-        // Start new betting pool - MUST await to ensure pool exists before countdown
-        await createNewPool();
+        // Pool is created on-demand via /ensure-pool when a user bets.
+        // Reset poolHasBothSides for this countdown cycle.
+        this.poolHasBothSides = false;
 
         // Note: Chat is NOT available during countdown, only during battle
 
         this.countdownInterval = setInterval(async () => {
             if (this.gameState.nextMatchCountdown && this.gameState.nextMatchCountdown > 0) {
-                // Check if Market Maker should rebalance - use getPoolInfo for on-chain data
+                // Check pool status (if pool exists)
                 const poolInfo = await getPoolInfo();
-                console.log("Countdown tick - poolInfo:", JSON.stringify(poolInfo), "countdown:", this.gameState.nextMatchCountdown);
 
-                // Always call scheduleBalancing (it will handle null/undefined)
-                scheduleBalancing(
-                    poolInfo.poolPda || '',
-                    this.gameState.nextMatchCountdown,
-                    poolInfo
-                );
+                // Track if both sides have bets (used to decide if we settle)
+                if (poolInfo.poolPda && poolInfo.cyanBets > 0 && poolInfo.magentaBets > 0) {
+                    this.poolHasBothSides = true;
+                }
+
+                if (this.gameState.nextMatchCountdown % 10 === 0 || this.gameState.nextMatchCountdown <= 5) {
+                    console.log(`Countdown ${this.gameState.nextMatchCountdown}s - pool=${poolInfo.poolPda ? 'yes' : 'no'} cyan=${poolInfo.cyanBets} magenta=${poolInfo.magentaBets} bothSides=${this.poolHasBothSides}`);
+                }
+
+                // Only call scheduleBalancing if pool exists and has bets
+                if (poolInfo.poolPda && this.poolHasBothSides) {
+                    scheduleBalancing(
+                        poolInfo.poolPda,
+                        this.gameState.nextMatchCountdown,
+                        poolInfo
+                    );
+                }
 
                 this.gameState.nextMatchCountdown--;
                 this.ioCallback(this.gameState);
