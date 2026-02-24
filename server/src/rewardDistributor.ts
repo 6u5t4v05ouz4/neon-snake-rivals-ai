@@ -25,13 +25,56 @@ function loadHouseWallet(): Keypair | null {
         return null;
     }
 
+    const expectedAddress = process.env.HOUSE_WALLET_ADDRESS;
+
     try {
-        const seed = bip39.mnemonicToSeedSync(mnemonic);
-        // Derive using Solana's standard path (m/44'/501'/0'/0')
-        const derivedSeed = derivePath("m/44'/501'/0'/0'", seed.toString('hex')).key;
-        const keypair = Keypair.fromSeed(derivedSeed);
-        console.log('🏦 House wallet loaded from mnemonic:', keypair.publicKey.toBase58());
-        return keypair;
+        const seed = bip39.mnemonicToSeedSync(mnemonic.trim());
+
+        // Try multiple derivation paths (Phantom, Solflare, CLI all differ)
+        const paths = [
+            "m/44'/501'/0'/0'",  // Phantom / Solflare default
+            "m/44'/501'/0'",     // Some wallets
+            "m/44'/501'",        // Solana CLI style
+        ];
+
+        for (const path of paths) {
+            const derivedSeed = derivePath(path, seed.toString('hex')).key;
+            const keypair = Keypair.fromSeed(derivedSeed);
+            const address = keypair.publicKey.toBase58();
+
+            console.log(`🔑 Trying path ${path} → ${address}`);
+
+            // If HOUSE_WALLET_ADDRESS is set, validate the derived address matches
+            if (expectedAddress && address === expectedAddress) {
+                console.log(`🏦 ✅ House wallet matched! Path: ${path}, Address: ${address}`);
+                return keypair;
+            } else if (!expectedAddress) {
+                // No expected address set, use first path
+                console.log(`🏦 House wallet loaded (path: ${path}): ${address}`);
+                return keypair;
+            }
+        }
+
+        // Also try raw seed (first 32 bytes) — some wallets use this
+        const rawKeypair = Keypair.fromSeed(seed.subarray(0, 32));
+        const rawAddress = rawKeypair.publicKey.toBase58();
+        console.log(`🔑 Trying raw seed → ${rawAddress}`);
+        if (expectedAddress && rawAddress === expectedAddress) {
+            console.log(`🏦 ✅ House wallet matched via raw seed! Address: ${rawAddress}`);
+            return rawKeypair;
+        }
+
+        if (expectedAddress) {
+            console.error(`❌ None of the derivation paths matched HOUSE_WALLET_ADDRESS: ${expectedAddress}`);
+            console.error('   Derived addresses:', paths.map((p, i) => `${p}: tried above`).join(', '));
+            return null;
+        }
+
+        // Fallback to Phantom path
+        const fallback = derivePath(paths[0], seed.toString('hex')).key;
+        const fallbackKeypair = Keypair.fromSeed(fallback);
+        console.log(`🏦 House wallet loaded (fallback): ${fallbackKeypair.publicKey.toBase58()}`);
+        return fallbackKeypair;
     } catch (e) {
         console.error('❌ Failed to load house wallet from mnemonic:', e);
         return null;
@@ -59,15 +102,24 @@ export async function getRewardPoolBalance(): Promise<{ balance: number; rewardP
     }
 }
 
-// Get daily leaderboard (bets from today only)
-async function getDailyLeaderboard(prisma: PrismaClient): Promise<{ wallet: string; score: number; wins: number }[]> {
-    const todayStart = new Date();
+// Get YESTERDAY's leaderboard (the day that just ended at midnight)
+async function getYesterdayLeaderboard(prisma: PrismaClient): Promise<{ wallet: string; score: number; wins: number }[]> {
+    const now = new Date();
+    const todayStart = new Date(now);
     todayStart.setUTCHours(0, 0, 0, 0);
+
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setUTCDate(yesterdayStart.getUTCDate() - 1);
+
+    console.log(`📅 Querying bets from ${yesterdayStart.toISOString()} to ${todayStart.toISOString()}`);
 
     const bets = await prisma.bet.findMany({
         where: {
             result: { not: null },
-            createdAt: { gte: todayStart },
+            createdAt: {
+                gte: yesterdayStart,
+                lt: todayStart,
+            },
         },
         select: {
             walletAddress: true,
@@ -75,6 +127,8 @@ async function getDailyLeaderboard(prisma: PrismaClient): Promise<{ wallet: stri
             result: true,
         },
     });
+
+    console.log(`📊 Found ${bets.length} settled bets from yesterday`);
 
     const walletStats = new Map<string, { wins: number; losses: number; totalBets: number; score: number }>();
 
@@ -118,10 +172,10 @@ async function distributeRewards(prisma: PrismaClient) {
             return;
         }
 
-        // 2. Get daily top 3
-        const top3 = await getDailyLeaderboard(prisma);
+        // 2. Get yesterday's top 3 (the day that just ended)
+        const top3 = await getYesterdayLeaderboard(prisma);
         if (top3.length === 0) {
-            console.log('⏭️ No daily bettors — skipping distribution');
+            console.log('⏭️ No bettors yesterday — skipping distribution');
             return;
         }
 
@@ -205,4 +259,9 @@ export function startRewardDistributor(prisma: PrismaClient) {
     }, { timezone: 'UTC' });
 
     console.log('✅ Reward distributor scheduled: daily at 00:00 UTC');
+}
+
+// Manual trigger for testing
+export async function triggerRewardDistribution(prisma: PrismaClient) {
+    await distributeRewards(prisma);
 }

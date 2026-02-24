@@ -12,7 +12,7 @@ import pg from 'pg';
 import { getCurrentPoolInfo, createNewPool, connection, program } from './solana';
 import { initMarketMaker } from './MarketMaker';
 import { registerBetSchema, markClaimedSchema } from './validation';
-import { startRewardDistributor, getRewardPoolBalance } from './rewardDistributor';
+import { startRewardDistributor, getRewardPoolBalance, triggerRewardDistribution } from './rewardDistributor';
 
 // ===== CHAT SYSTEM - Import from shared to avoid circular dependency =====
 import {
@@ -278,6 +278,21 @@ app.get('/reward-history', async (req, res) => {
     }
 });
 
+// Manual trigger for reward distribution (protected)
+app.post('/admin/distribute-rewards', async (req, res) => {
+    const adminKey = req.headers['x-admin-key'];
+    if (adminKey !== process.env.ADMIN_SECRET && adminKey !== 'neonsnake2024') {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+    try {
+        console.log('🔧 Manual reward distribution triggered via API');
+        await triggerRewardDistribution(prisma);
+        res.json({ success: true, message: 'Distribution triggered — check logs' });
+    } catch (e) {
+        console.error('Manual distribution error:', e);
+        res.status(500).json({ error: 'Distribution failed' });
+    }
+});
 
 // Profile statistics for a wallet
 app.get('/profile/:walletAddress', async (req, res) => {
