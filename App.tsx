@@ -5,6 +5,7 @@ import StatsPanel from './components/StatsPanel';
 import BettingPanel from './components/BettingPanel';
 import ChatPanel from './components/ChatPanel';
 import LeaderboardPanel from './components/LeaderboardPanel';
+import RewardHistoryPanel from './components/RewardHistoryPanel';
 import HowItWorks from './components/HowItWorks';
 import { HelpCircle, Volume2, VolumeX, Twitter, Wifi } from 'lucide-react';
 import { GameStatus } from './types';
@@ -24,6 +25,7 @@ import { ToastProvider } from './components/Toast';
 const AppContent: React.FC = () => {
   const { gameState, ping } = useSnakeGame();
   const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [showRewardHistory, setShowRewardHistory] = useState(false);
   const { publicKey, connected } = useWallet();
   const [userHasBet, setUserHasBet] = useState(false);
   const { play, enabled: soundEnabled, toggle: toggleSound } = useSoundEffects();
@@ -125,8 +127,11 @@ const AppContent: React.FC = () => {
 
       {/* Left Panel - Leaderboard (below Betting) */}
       <div className="fixed bottom-4 left-4 w-72 z-30">
-        <LeaderboardPanel currentWallet={publicKey?.toBase58() || null} />
+        <LeaderboardPanel currentWallet={publicKey?.toBase58() || null} onShowHistory={() => setShowRewardHistory(true)} />
       </div>
+
+      {/* Reward History Modal */}
+      {showRewardHistory && <RewardHistoryPanel onClose={() => setShowRewardHistory(false)} />}
 
       {/* Right Panel - Stats */}
       <StatsPanel currentScores={{ cyan: s1.score, magenta: s2.score }} />

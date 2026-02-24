@@ -265,17 +265,48 @@ app.get('/reward-pool', async (req, res) => {
     }
 });
 
-// Reward distribution history
+// Reward distribution history (paginated)
 app.get('/reward-history', async (req, res) => {
     try {
-        const distributions = await prisma.rewardDistribution.findMany({
-            orderBy: { distributedAt: 'desc' },
-            take: 30,
-        });
-        res.json(distributions);
+        const limit = Math.min(Number(req.query.limit) || 30, 100);
+        const offset = Number(req.query.offset) || 0;
+
+        const [distributions, total] = await Promise.all([
+            prisma.rewardDistribution.findMany({
+                orderBy: { distributedAt: 'desc' },
+                take: limit,
+                skip: offset,
+            }),
+            prisma.rewardDistribution.count(),
+        ]);
+        res.json({ distributions, total, limit, offset });
     } catch (e) {
         console.error('Reward history error:', e);
         res.status(500).json({ error: 'Failed to get reward history' });
+    }
+});
+
+// Latest reward distribution (last batch only)
+app.get('/reward-history/latest', async (req, res) => {
+    try {
+        // Get the most recent distribution timestamp
+        const latest = await prisma.rewardDistribution.findFirst({
+            orderBy: { distributedAt: 'desc' },
+        });
+        if (!latest) {
+            return res.json({ distributions: [], distributedAt: null });
+        }
+
+        // Get all distributions from that same batch (same timestamp ± 1 minute)
+        const batchStart = new Date(latest.distributedAt.getTime() - 60000);
+        const distributions = await prisma.rewardDistribution.findMany({
+            where: { distributedAt: { gte: batchStart } },
+            orderBy: { rank: 'asc' },
+        });
+        res.json({ distributions, distributedAt: latest.distributedAt });
+    } catch (e) {
+        console.error('Latest reward error:', e);
+        res.status(500).json({ error: 'Failed to get latest rewards' });
     }
 });
 
