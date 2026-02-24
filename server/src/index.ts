@@ -98,6 +98,7 @@ export async function updateUserBetResults(poolPda: string, winner: string) {
 initMarketMaker(connection, program, prisma as any);
 
 const app = express();
+app.set('trust proxy', 1); // Railway runs behind a reverse proxy
 
 // ===== SECURITY: Helmet for security headers =====
 app.use(helmet({
