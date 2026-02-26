@@ -253,45 +253,50 @@ export class GameEngine {
                 } else {
                     console.log(`⏭️ Skipping settle (poolPda=${poolPda ? 'yes' : 'no'}, bothSides=${this.poolHasBothSides})`);
                 }
-            } else if (aliveSnakes.length === 0) {
-                // Both snakes died simultaneously - TIEBREAKER cascade
+            } else if (aliveSnakes.length < nextSnakes.length) {
+                // Game over because at least one snake died
                 newStatus = GameStatus.GAME_OVER;
 
                 const snake1 = nextSnakes[0];
                 const snake2 = nextSnakes[1];
 
-                let tieWinner: typeof snake1 | null = null;
-                let tieReason = '';
+                let matchWinner: typeof snake1 | null = null;
+                let winReason = '';
 
-                // Tiebreaker 1: Higher score wins
+                // Tiebreaker 1: Higher score wins (Score overrides survival!)
                 if (snake1.score > snake2.score) {
-                    tieWinner = snake1;
-                    tieReason = `score ${snake1.score} vs ${snake2.score}`;
+                    matchWinner = snake1;
+                    winReason = `score ${snake1.score} vs ${snake2.score}`;
                 } else if (snake2.score > snake1.score) {
-                    tieWinner = snake2;
-                    tieReason = `score ${snake2.score} vs ${snake1.score}`;
+                    matchWinner = snake2;
+                    winReason = `score ${snake2.score} vs ${snake1.score}`;
                 }
-                // Tiebreaker 2: Longer body wins (if scores are equal)
+                // Tiebreaker 2: If scores are tied, survivor wins
+                else if (aliveSnakes.length === 1) {
+                    matchWinner = aliveSnakes[0];
+                    winReason = `survival (scores tied at ${snake1.score})`;
+                }
+                // Tiebreaker 3: Both died and scores tied -> Longer body wins
                 else if (snake1.body.length > snake2.body.length) {
-                    tieWinner = snake1;
-                    tieReason = `body length ${snake1.body.length} vs ${snake2.body.length}`;
+                    matchWinner = snake1;
+                    winReason = `body length ${snake1.body.length} vs ${snake2.body.length}`;
                 } else if (snake2.body.length > snake1.body.length) {
-                    tieWinner = snake2;
-                    tieReason = `body length ${snake2.body.length} vs ${snake1.body.length}`;
+                    matchWinner = snake2;
+                    winReason = `body length ${snake2.body.length} vs ${snake1.body.length}`;
                 }
-                // Tiebreaker 3: Random coin flip (last resort, avoids draw)
+                // Tiebreaker 4: Random coin flip (last resort)
                 else {
-                    tieWinner = Math.random() < 0.5 ? snake1 : snake2;
-                    tieReason = `coin flip (${snake1.score} pts each, ${snake1.body.length} len each)`;
+                    matchWinner = Math.random() < 0.5 ? snake1 : snake2;
+                    winReason = `coin flip (${snake1.score} pts each, ${snake1.body.length} len each)`;
                 }
 
-                winner = tieWinner.name;
-                console.log(`TIEBREAKER: ${tieWinner.name} wins by ${tieReason}`);
+                winner = matchWinner.name;
+                console.log(`END GAME: ${matchWinner.name} wins by ${winReason}`);
 
                 // Only settle on-chain if pool exists AND both sides have bets
                 const poolPda = getCurrentPoolInfo().poolPda || '';
                 if (poolPda && this.poolHasBothSides) {
-                    const winnerColor = tieWinner.colorClass === 'cyan' ? 'cyan' : 'magenta';
+                    const winnerColor = matchWinner.colorClass === 'cyan' ? 'cyan' : 'magenta';
                     settleGame(winnerColor);
                     updateMakerBetResults(poolPda, winnerColor);
                     updateUserBetResults(poolPda, winnerColor);
@@ -299,39 +304,10 @@ export class GameEngine {
                     setTimeout(() => claimMakerWinnings(poolPda), 2000);
                     // Pool is settled — clear it so next round starts fresh
                     this.poolHasBothSides = false;
-                    const tieWinColor = tieWinner.colorClass === 'cyan' ? 'cyan' : 'magenta';
-                    this.saveSettledPool(poolPda, tieWinColor);
+                    this.saveSettledPool(poolPda, winnerColor);
                     clearCurrentPool();
                 } else {
-                    console.log(`⏭️ Skipping tiebreak settle (poolPda=${poolPda ? 'yes' : 'no'}, bothSides=${this.poolHasBothSides})`);
-                }
-
-            } else if (aliveSnakes.length === 1 && nextSnakes.length > 1) {
-                // Last man standing
-                newStatus = GameStatus.GAME_OVER;
-                winner = aliveSnakes[0].name;
-                const poolPda = getCurrentPoolInfo().poolPda || '';
-                if (poolPda && this.poolHasBothSides) {
-                    if (aliveSnakes[0].colorClass === "cyan") {
-                        settleGame("cyan");
-                        updateMakerBetResults(poolPda, 'cyan');
-                        updateUserBetResults(poolPda, 'cyan');
-                        emitGameSettled(poolPda, 'cyan');
-                        setTimeout(() => claimMakerWinnings(poolPda), 2000);
-                    } else if (aliveSnakes[0].colorClass === "fuchsia") {
-                        settleGame("magenta");
-                        updateMakerBetResults(poolPda, 'magenta');
-                        updateUserBetResults(poolPda, 'magenta');
-                        emitGameSettled(poolPda, 'magenta');
-                        setTimeout(() => claimMakerWinnings(poolPda), 2000);
-                    }
-                    // Pool is settled — clear it so next round starts fresh
-                    this.poolHasBothSides = false;
-                    const elimWinColor = aliveSnakes[0].colorClass === 'cyan' ? 'cyan' : 'magenta';
-                    this.saveSettledPool(poolPda, elimWinColor);
-                    clearCurrentPool();
-                } else {
-                    console.log(`⏭️ Skipping elimination settle (poolPda=${poolPda ? 'yes' : 'no'}, bothSides=${this.poolHasBothSides})`);
+                    console.log(`⏭️ Skipping end game settle (poolPda=${poolPda ? 'yes' : 'no'}, bothSides=${this.poolHasBothSides})`);
                 }
             }
 
