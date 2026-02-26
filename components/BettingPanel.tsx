@@ -439,7 +439,7 @@ const BettingPanel: React.FC<BettingPanelProps> = ({ isCountdown }) => {
 
 
     return (
-        <div className="fixed top-4 left-4 bg-slate-900/90 border border-slate-700 p-4 rounded-lg shadow-xl backdrop-blur-md z-30 w-72">
+        <div className="bg-slate-900/90 border border-slate-700 p-4 rounded-lg shadow-xl backdrop-blur-md w-72">
             {/* Wallet Connect */}
             <div className="mb-4 flex justify-center">
                 <WalletMultiButton />
