@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useSnakeGame } from './hooks/useSnakeGame';
 import SnakeBoard from './components/SnakeBoard';
 import StatsPanel from './components/StatsPanel';
@@ -6,7 +6,6 @@ import BettingPanel from './components/BettingPanel';
 import ChatPanel from './components/ChatPanel';
 import LeaderboardPanel from './components/LeaderboardPanel';
 import RewardHistoryPanel from './components/RewardHistoryPanel';
-import DraggablePanel from './components/DraggablePanel';
 import HowItWorks from './components/HowItWorks';
 import { HelpCircle, Volume2, VolumeX, Twitter, Wifi } from 'lucide-react';
 import { GameStatus } from './types';
@@ -108,63 +107,6 @@ const AppContent: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState.nextMatchCountdown]);
 
-  // ===== DRAGGABLE PANEL SYSTEM =====
-  const panelRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const STORAGE_KEY = 'snakearena-panel-positions';
-
-  // Default positions (matching old fixed layout)
-  const DEFAULT_POSITIONS: Record<string, { x: number; y: number }> = {
-    betting: { x: 16, y: 80 },
-    leaderboard: { x: 16, y: 0 },   // will be calculated
-    stats: { x: 0, y: 16 },          // will be calculated
-    chat: { x: 0, y: 340 },          // will be calculated
-  };
-
-  // Load saved positions or use defaults
-  const loadPositions = useCallback(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch { /* ignore */ }
-    return {};
-  }, []);
-
-  const [panelPositions, setPanelPositions] = useState<Record<string, { x: number; y: number }>>(loadPositions);
-
-  // Calculate right-side default positions based on window width
-  const getDefaultPosition = useCallback((id: string) => {
-    if (panelPositions[id]) return panelPositions[id];
-    const w = typeof window !== 'undefined' ? window.innerWidth : 1200;
-    switch (id) {
-      case 'betting': return { x: 16, y: 80 };
-      case 'leaderboard': return { x: 16, y: typeof window !== 'undefined' ? window.innerHeight - 320 : 400 };
-      case 'stats': return { x: w - 304, y: 16 };
-      case 'chat': return { x: w - 304, y: 340 };
-      default: return { x: 0, y: 0 };
-    }
-  }, [panelPositions]);
-
-  // Save position on change
-  const handlePositionChange = useCallback((id: string, pos: { x: number; y: number }) => {
-    setPanelPositions(prev => {
-      const next = { ...prev, [id]: pos };
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
-      return next;
-    });
-  }, []);
-
-  // Get bounding rects of all panels except the one being dragged
-  const getPanelRects = useCallback((excludeId: string): DOMRect[] => {
-    return Object.entries(panelRefs.current)
-      .filter(([id, el]) => id !== excludeId && el !== null)
-      .map(([, el]) => (el as HTMLDivElement).getBoundingClientRect());
-  }, []);
-
-  // Register panel refs
-  const registerPanelRef = useCallback((id: string) => (el: HTMLDivElement | null) => {
-    panelRefs.current[id] = el;
-  }, []);
-
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-8 flex flex-col items-center">
 
@@ -180,63 +122,27 @@ const AppContent: React.FC = () => {
         </div>
       </header>
 
-      {/* Draggable Panels */}
-      <DraggablePanel
-        id="betting"
-        defaultPosition={getDefaultPosition('betting')}
-        onPositionChange={handlePositionChange}
-        getPanelRects={getPanelRects}
-        style={{ zIndex: 30 }}
-      >
-        <div ref={registerPanelRef('betting')}>
-          <BettingPanel isCountdown={isCountdown} />
-        </div>
-      </DraggablePanel>
+      {/* Left Panel - Betting */}
+      <BettingPanel isCountdown={isCountdown} />
 
-      <DraggablePanel
-        id="leaderboard"
-        defaultPosition={getDefaultPosition('leaderboard')}
-        position={panelPositions['leaderboard'] || getDefaultPosition('leaderboard')}
-        onPositionChange={handlePositionChange}
-        getPanelRects={getPanelRects}
-        style={{ zIndex: 30 }}
-      >
-        <div ref={registerPanelRef('leaderboard')}>
-          <LeaderboardPanel currentWallet={publicKey?.toBase58() || null} onShowHistory={() => setShowRewardHistory(true)} />
-        </div>
-      </DraggablePanel>
+      {/* Left Panel - Leaderboard (below Betting) */}
+      <div className="fixed bottom-4 left-4 w-72 z-30">
+        <LeaderboardPanel currentWallet={publicKey?.toBase58() || null} onShowHistory={() => setShowRewardHistory(true)} />
+      </div>
 
       {/* Reward History Modal */}
       {showRewardHistory && <RewardHistoryPanel onClose={() => setShowRewardHistory(false)} />}
 
-      <DraggablePanel
-        id="stats"
-        defaultPosition={getDefaultPosition('stats')}
-        position={panelPositions['stats'] || getDefaultPosition('stats')}
-        onPositionChange={handlePositionChange}
-        getPanelRects={getPanelRects}
-        style={{ zIndex: 30 }}
-      >
-        <div ref={registerPanelRef('stats')}>
-          <StatsPanel currentScores={{ cyan: s1.score, magenta: s2.score }} />
-        </div>
-      </DraggablePanel>
+      {/* Right Panel - Stats */}
+      <StatsPanel currentScores={{ cyan: s1.score, magenta: s2.score }} />
 
-      <DraggablePanel
-        id="chat"
-        defaultPosition={getDefaultPosition('chat')}
-        position={panelPositions['chat'] || getDefaultPosition('chat')}
-        onPositionChange={handlePositionChange}
-        getPanelRects={getPanelRects}
-        style={{ zIndex: 30 }}
-      >
-        <div ref={registerPanelRef('chat')} className="w-72 h-[420px]">
-          <ChatPanel
-            walletAddress={publicKey?.toBase58() || null}
-            userHasBet={canAccessChat}
-          />
-        </div>
-      </DraggablePanel>
+      {/* Right Panel - Chat (below Stats) */}
+      <div className="fixed top-[340px] right-4 w-72 h-[420px] z-30">
+        <ChatPanel
+          walletAddress={publicKey?.toBase58() || null}
+          userHasBet={canAccessChat}
+        />
+      </div>
 
       {/* Main Content - Game Board */}
       <main className="relative z-10 w-full max-w-4xl mx-auto flex flex-col items-center justify-center p-4">

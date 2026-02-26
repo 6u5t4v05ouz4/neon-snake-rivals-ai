@@ -49,7 +49,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ currentScores }) => {
     const session = stats.currentSession;
 
     return (
-        <div className="bg-slate-900/90 border border-slate-700 p-4 rounded-lg shadow-xl backdrop-blur-md w-72 max-h-[90vh] overflow-y-auto">
+        <div className="fixed top-4 right-4 bg-slate-900/90 border border-slate-700 p-4 rounded-lg shadow-xl backdrop-blur-md z-30 w-72 max-h-[90vh] overflow-y-auto">
 
             {/* Live Score Board */}
             <div className="flex gap-6 bg-slate-900/80 p-3 rounded-xl border border-slate-800 mb-4 justify-between">
@@ -67,8 +67,8 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ currentScores }) => {
             {/* Last Winner Badge */}
             {stats.lastWinner && (
                 <div className={`text-center text-xs py-2 px-3 rounded-lg mb-4 border ${stats.lastWinner === 'CYAN VIPER'
-                    ? 'bg-cyan-900/30 border-cyan-500/50 text-cyan-400'
-                    : 'bg-fuchsia-900/30 border-fuchsia-500/50 text-fuchsia-400'
+                        ? 'bg-cyan-900/30 border-cyan-500/50 text-cyan-400'
+                        : 'bg-fuchsia-900/30 border-fuchsia-500/50 text-fuchsia-400'
                     }`}>
                     🏆 Last Winner: <span className="font-bold">{stats.lastWinner === 'CYAN VIPER' ? 'CYAN' : 'MAGENTA'}</span>
                 </div>
