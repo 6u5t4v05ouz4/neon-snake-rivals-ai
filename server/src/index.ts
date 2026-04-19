@@ -32,7 +32,7 @@ import {
 // Re-export for backwards compatibility
 export { setActiveBattlePool, clearSessionChat, getActiveBattlePool, emitGameSettled, setIoInstance };
 
-// ===== DATABASE: Require DATABASE_URL env var =====
+// ===== DATABASE: Requires DATABASE_URL env var =====
 if (!process.env.DATABASE_URL) {
     console.error("FATAL: DATABASE_URL environment variable is not set");
     process.exit(1);
