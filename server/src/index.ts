@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import crypto from 'crypto';
 import { z } from 'zod';
 import { GameEngine } from './GameEngine';
 import { PrismaClient } from '@prisma/client';
@@ -13,6 +14,7 @@ import { getCurrentPoolInfo, createNewPool, connection, program } from './solana
 import { initMarketMaker } from './MarketMaker';
 import { registerBetSchema, markClaimedSchema } from './validation';
 import { startRewardDistributor, getRewardPoolBalance, triggerRewardDistribution } from './rewardDistributor';
+import { verifyBetTransaction, verifyClaimTransaction } from './txVerification';
 
 // ===== CHAT SYSTEM - Import from shared to avoid circular dependency =====
 import {
@@ -31,6 +33,14 @@ import {
 
 // Re-export for backwards compatibility
 export { setActiveBattlePool, clearSessionChat, getActiveBattlePool, emitGameSettled, setIoInstance };
+
+// Constant-time string comparison (prevents timing attacks)
+function timingSafeCompare(a: string, b: string): boolean {
+    const bufA = Buffer.from(a, 'utf8');
+    const bufB = Buffer.from(b, 'utf8');
+    if (bufA.length !== bufB.length) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
+}
 
 // ===== DATABASE: Requires DATABASE_URL env var =====
 if (!process.env.DATABASE_URL) {
@@ -133,6 +143,11 @@ app.use(cors({
 app.use(generalLimiter);
 
 app.use(express.json()); // Parse JSON request bodies
+
+// Chat IP-based rate limiting (mitigates impersonation spam)
+const chatIpRateLimits: Map<string, { count: number; resetAt: number }> = new Map();
+const CHAT_IP_RATE_LIMIT = 10;         // max messages per window
+const CHAT_IP_RATE_WINDOW_MS = 60_000; // 1 minute window
 
 // Current session ID (set on startup)
 let currentSessionId: number | null = null;
@@ -327,7 +342,7 @@ app.get('/reward-history/latest', async (req, res) => {
 // Manual trigger for reward distribution (protected)
 app.post('/admin/distribute-rewards', async (req, res) => {
     const adminKey = req.headers['x-admin-key'];
-    if (!process.env.ADMIN_SECRET || adminKey !== process.env.ADMIN_SECRET) {
+    if (!process.env.ADMIN_SECRET || typeof adminKey !== 'string' || !timingSafeCompare(adminKey, process.env.ADMIN_SECRET)) {
         return res.status(403).json({ error: 'Unauthorized' });
     }
     try {
@@ -495,6 +510,21 @@ app.post('/register-bet', strictLimiter, async (req, res) => {
         const validated = registerBetSchema.parse(req.body);
         const { poolPda, walletAddress, side, amount, txSignature } = validated;
 
+        // Verify the on-chain transaction before storing
+        const expectedLamports = Math.round(amount * 1e9);
+        const txResult = await verifyBetTransaction({
+            txSignature,
+            expectedPoolPda: poolPda,
+            expectedWallet: walletAddress,
+            expectedSide: side,
+            expectedAmountLamports: expectedLamports,
+        });
+
+        if (!txResult.valid) {
+            console.warn(`Bet verification failed for ${walletAddress.slice(0, 8)}: ${txResult.error}`);
+            return res.status(400).json({ error: txResult.error });
+        }
+
         // Upsert - update if exists, create if not
         const bet = await prisma.bet.upsert({
             where: { poolPda_walletAddress: { poolPda, walletAddress } },
@@ -614,7 +644,22 @@ app.post('/mark-claimed', strictLimiter, async (req, res) => {
     try {
         // Validate input with Zod
         const validated = markClaimedSchema.parse(req.body);
-        const { poolPda, walletAddress } = validated;
+        const { poolPda, walletAddress, claimTxSignature } = validated;
+
+        // Verify on-chain claim transaction if provided
+        if (claimTxSignature) {
+            const claimResult = await verifyClaimTransaction({
+                txSignature: claimTxSignature,
+                expectedPoolPda: poolPda,
+                expectedWallet: walletAddress,
+            });
+            if (!claimResult.valid) {
+                console.warn(`Claim verification failed for ${walletAddress.slice(0, 8)}: ${claimResult.error}`);
+                return res.status(400).json({ error: claimResult.error });
+            }
+        } else {
+            console.warn(`DEPRECATED: /mark-claimed called without claimTxSignature for ${walletAddress.slice(0, 8)}`);
+        }
 
         await prisma.bet.update({
             where: { poolPda_walletAddress: { poolPda, walletAddress } },
@@ -683,6 +728,20 @@ async function startServer() {
                     socket.emit('chat:error', { error: 'Missing wallet or message' });
                     return;
                 }
+
+                // IP-based rate limiting
+                const clientIp = socket.handshake.address || 'unknown';
+                const ipLimit = chatIpRateLimits.get(clientIp) || { count: 0, resetAt: Date.now() + CHAT_IP_RATE_WINDOW_MS };
+                if (Date.now() > ipLimit.resetAt) {
+                    ipLimit.count = 0;
+                    ipLimit.resetAt = Date.now() + CHAT_IP_RATE_WINDOW_MS;
+                }
+                if (ipLimit.count >= CHAT_IP_RATE_LIMIT) {
+                    socket.emit('chat:error', { error: 'Rate limited. Slow down.' });
+                    return;
+                }
+                ipLimit.count++;
+                chatIpRateLimits.set(clientIp, ipLimit);
 
                 // Rate limiting
                 const lastMsgTime = chatRateLimits.get(walletAddress) || 0;

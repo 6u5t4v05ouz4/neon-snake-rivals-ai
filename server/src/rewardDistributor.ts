@@ -81,7 +81,8 @@ function loadHouseWallet(): Keypair | null {
     }
 }
 
-// Get the reward pool amount (50% of house wallet balance)
+// INTENTIONAL: House wallet address and balance are exposed for transparency.
+// Users can verify house wallet funds on-chain independently (provably-fair).
 export async function getRewardPoolBalance(): Promise<{ balance: number; rewardPool: number; houseWallet: string | null }> {
     if (!houseWalletKeypair) {
         return { balance: 0, rewardPool: 0, houseWallet: null };

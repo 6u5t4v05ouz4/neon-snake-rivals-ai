@@ -34,3 +34,6 @@ dist-ssr
 *keypair*.json
 backend-keypair.json
 *.key
+
+# Scripts with potential secrets
+scripts/

@@ -16,7 +16,8 @@ export const registerBetSchema = z.object({
 
 export const markClaimedSchema = z.object({
     poolPda: solanaAddressSchema,
-    walletAddress: solanaAddressSchema
+    walletAddress: solanaAddressSchema,
+    claimTxSignature: txSignatureSchema.optional(),
 });
 
 export type RegisterBetInput = z.infer<typeof registerBetSchema>;
