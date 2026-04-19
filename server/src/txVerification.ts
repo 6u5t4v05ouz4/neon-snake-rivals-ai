@@ -35,11 +35,15 @@ function parsePlaceBetData(data: Buffer): { side: "cyan" | "magenta"; amountLamp
 }
 
 function extractAccountIndices(ix: any): number[] {
-    // Try all possible field names for account indices
-    if (Array.isArray(ix.accountIndices)) return Array.from(ix.accountIndices);
-    if (ix.accountIndices instanceof Uint8Array) return Array.from(ix.accountIndices);
+    // V0 compiled: accountKeyIndexes
+    if (Array.isArray(ix.accountKeyIndexes)) return Array.from(ix.accountKeyIndexes);
+    if (ix.accountKeyIndexes instanceof Uint8Array) return Array.from(ix.accountKeyIndexes);
+    // Legacy: accounts
     if (Array.isArray(ix.accounts)) return Array.from(ix.accounts);
     if (ix.accounts instanceof Uint8Array) return Array.from(ix.accounts);
+    // Fallback: accountIndices
+    if (Array.isArray(ix.accountIndices)) return Array.from(ix.accountIndices);
+    if (ix.accountIndices instanceof Uint8Array) return Array.from(ix.accountIndices);
     return [];
 }
 
@@ -115,14 +119,24 @@ export async function verifyBetTransaction(params: BetVerificationParams): Promi
             if (!parsed) continue;
 
             const indices = extractAccountIndices(ix);
-            // IDL: pool(0), user_bet(1), user/signer(2), system_program(3)
-            const poolKey = accountKeys[indices[0]];
-            const userKey = accountKeys[indices[2]];
 
-            if (!poolKey || !poolKey.equals(new PublicKey(expectedPoolPda))) {
+            // Find pool and signer by matching keys, not by position
+            const expectedPool = new PublicKey(expectedPoolPda);
+            const expectedUser = new PublicKey(expectedWallet);
+            let poolFound = false;
+            let userFound = false;
+            for (const idx of indices) {
+                const key = accountKeys[idx];
+                if (key && key.equals(expectedPool)) poolFound = true;
+                if (key && key.equals(expectedUser)) userFound = true;
+            }
+
+            if (!poolFound) {
+                console.log("txVerification: pool not in accounts. indices:", indices,
+                    "keys:", indices.map((i: number) => accountKeys[i]?.toBase58?.()));
                 return { valid: false, error: "Transaction pool does not match" };
             }
-            if (!userKey || !userKey.equals(new PublicKey(expectedWallet))) {
+            if (!userFound) {
                 return { valid: false, error: "Transaction signer does not match wallet" };
             }
             if (parsed.side !== expectedSide) {
@@ -166,16 +180,19 @@ export async function verifyClaimTransaction(params: ClaimVerificationParams): P
             if (data.length < 8 || !data.subarray(0, 8).equals(CLAIM_WINNINGS_DISCRIMINATOR)) continue;
 
             const indices = extractAccountIndices(ix);
-            // IDL: pool(0), user/signer(1), user_bet(2), system_program(3)
-            const poolKey = accountKeys[indices[0]];
-            const userKey = accountKeys[indices[1]];
 
-            if (!poolKey || !poolKey.equals(new PublicKey(expectedPoolPda))) {
-                return { valid: false, error: "Claim transaction is for a different pool" };
+            const expectedPool = new PublicKey(expectedPoolPda);
+            const expectedUser = new PublicKey(expectedWallet);
+            let poolFound = false;
+            let userFound = false;
+            for (const idx of indices) {
+                const key = accountKeys[idx];
+                if (key && key.equals(expectedPool)) poolFound = true;
+                if (key && key.equals(expectedUser)) userFound = true;
             }
-            if (!userKey || !userKey.equals(new PublicKey(expectedWallet))) {
-                return { valid: false, error: "Claim transaction signer does not match wallet" };
-            }
+
+            if (!poolFound) return { valid: false, error: "Claim transaction is for a different pool" };
+            if (!userFound) return { valid: false, error: "Claim transaction signer does not match wallet" };
             return { valid: true };
         }
 
