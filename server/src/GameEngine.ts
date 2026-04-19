@@ -1,5 +1,6 @@
 import { GameState, Snake, GameStatus, Direction, Point } from './types';
 import { PrismaClient } from '@prisma/client';
+import crypto from 'crypto';
 import { BOARD_WIDTH, BOARD_HEIGHT, SNAKE_1_START, SNAKE_2_START, MIN_SPEED, START_GAME_SPEED, SPEED_DECREMENT, WIN_SCORE, RESTART_DELAY } from './constants';
 import { getBestMove } from './aiLogic';
 import { createNewPool, settleGame, getPoolInfo, getCurrentPoolInfo, clearCurrentPool } from './solana';
@@ -286,7 +287,7 @@ export class GameEngine {
                 }
                 // Tiebreaker 4: Random coin flip (last resort)
                 else {
-                    matchWinner = Math.random() < 0.5 ? snake1 : snake2;
+                    matchWinner = crypto.randomBytes(1)[0] < 128 ? snake1 : snake2;
                     winReason = `coin flip (${snake1.score} pts each, ${snake1.body.length} len each)`;
                 }
 

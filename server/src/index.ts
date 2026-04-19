@@ -32,11 +32,12 @@ import {
 // Re-export for backwards compatibility
 export { setActiveBattlePool, clearSessionChat, getActiveBattlePool, emitGameSettled, setIoInstance };
 
-// ===== DATABASE: Use env var with Railway internal fallback =====
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:bcmQaxDnVtZBzLnvQlwknkEuoWKkPLoG@postgres.railway.internal:5432/railway';
+// ===== DATABASE: Require DATABASE_URL env var =====
 if (!process.env.DATABASE_URL) {
-    console.warn("WARNING: DATABASE_URL not set, using Railway internal fallback");
+    console.error("FATAL: DATABASE_URL environment variable is not set");
+    process.exit(1);
 }
+const DATABASE_URL = process.env.DATABASE_URL;
 
 const pool = new pg.Pool({ connectionString: DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -128,6 +129,12 @@ app.use(express.json()); // Parse JSON request bodies
 
 // Current session ID (set on startup)
 let currentSessionId: number | null = null;
+
+// Wallet address validation (Solana base58, 32-44 chars)
+const WALLET_REGEX = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+function validateWallet(address: string): boolean {
+    return WALLET_REGEX.test(address);
+}
 
 app.get('/', (req, res) => {
     res.send('Snake Server is Running!');
@@ -268,8 +275,8 @@ app.get('/reward-pool', async (req, res) => {
 // Reward distribution history (paginated)
 app.get('/reward-history', async (req, res) => {
     try {
-        const limit = Math.min(Number(req.query.limit) || 30, 100);
-        const offset = Number(req.query.offset) || 0;
+        const limit = Math.min(Math.max(Number(req.query.limit) || 30, 1), 100);
+        const offset = Math.max(Number(req.query.offset) || 0, 0);
 
         const [distributions, total] = await Promise.all([
             prisma.rewardDistribution.findMany({
@@ -313,7 +320,7 @@ app.get('/reward-history/latest', async (req, res) => {
 // Manual trigger for reward distribution (protected)
 app.post('/admin/distribute-rewards', async (req, res) => {
     const adminKey = req.headers['x-admin-key'];
-    if (adminKey !== process.env.ADMIN_SECRET && adminKey !== 'neonsnake2024') {
+    if (!process.env.ADMIN_SECRET || adminKey !== process.env.ADMIN_SECRET) {
         return res.status(403).json({ error: 'Unauthorized' });
     }
     try {
@@ -330,6 +337,9 @@ app.post('/admin/distribute-rewards', async (req, res) => {
 app.get('/profile/:walletAddress', async (req, res) => {
     try {
         const { walletAddress } = req.params;
+        if (!validateWallet(walletAddress)) {
+            return res.status(400).json({ error: 'Invalid wallet address' });
+        }
 
         // Get all bets for this wallet
         const bets = await prisma.bet.findMany({
@@ -449,6 +459,9 @@ app.get('/pool-info', async (req, res) => {
 // User bet status
 app.get('/user-bet/:pubkey', async (req, res) => {
     try {
+        if (!validateWallet(req.params.pubkey)) {
+            return res.status(400).json({ error: 'Invalid wallet address' });
+        }
         const { getUserBet } = await import('./solana');
         const userBet = await getUserBet(req.params.pubkey);
         res.json({ bet: userBet });
@@ -497,6 +510,9 @@ app.post('/register-bet', strictLimiter, async (req, res) => {
 // Get bets for a wallet
 app.get('/my-bets/:walletAddress', async (req, res) => {
     try {
+        if (!validateWallet(req.params.walletAddress)) {
+            return res.status(400).json({ error: 'Invalid wallet address' });
+        }
         const bets = await prisma.bet.findMany({
             where: { walletAddress: req.params.walletAddress },
             orderBy: { createdAt: 'desc' }
@@ -511,6 +527,9 @@ app.get('/my-bets/:walletAddress', async (req, res) => {
 app.get('/can-claim/:walletAddress', async (req, res) => {
     try {
         const walletAddress = req.params.walletAddress;
+        if (!validateWallet(walletAddress)) {
+            return res.status(400).json({ error: 'Invalid wallet address' });
+        }
 
         // Find ALL unclaimed winning bets for this wallet
         const unclaimedBets = await prisma.bet.findMany({
