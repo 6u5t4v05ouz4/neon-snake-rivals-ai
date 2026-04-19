@@ -103,7 +103,14 @@ app.set('trust proxy', 1); // Railway runs behind a reverse proxy
 
 // ===== SECURITY: Helmet for security headers =====
 app.use(helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin for API
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true,
+    },
+    frameguard: { action: 'deny' },
+    contentSecurityPolicy: false, // API server, CSP not applicable
 }));
 
 // ===== SECURITY: CORS with restricted origins =====
@@ -684,8 +691,14 @@ async function startServer() {
                     return;
                 }
 
-                // Validate message length
-                const sanitizedMessage = message.trim().slice(0, MAX_MESSAGE_LENGTH);
+                // Sanitize message - strip HTML tags and escape entities
+                const escapeHtml = (str: string) => str
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#x27;');
+                const sanitizedMessage = escapeHtml(message.trim()).slice(0, MAX_MESSAGE_LENGTH);
                 if (sanitizedMessage.length === 0) {
                     socket.emit('chat:error', { error: 'Message cannot be empty' });
                     return;
