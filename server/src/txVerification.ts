@@ -105,16 +105,13 @@ export async function verifyBetTransaction(params: BetVerificationParams): Promi
 
     // Debug: dump instruction structure
     const msg = tx.transaction.message;
+    const rawCI = msg.compiledInstructions?.[0];
     console.log("txVerification DEBUG:", {
-        hasCompiledInstructions: !!msg.compiledInstructions?.length,
-        hasInstructions: !!msg.instructions?.length,
-        accountKeysType: Array.isArray(msg.accountKeys) ? (msg.accountKeys[0]?.constructor?.name || 'unknown') : 'not-array',
-        hasStaticAccountKeys: !!msg.staticAccountKeys,
+        compiledInstructionKeys: rawCI ? Object.keys(rawCI) : 'none',
+        rawCI: rawCI ? JSON.stringify(rawCI).slice(0, 500) : 'none',
         sampleInstruction: allInstructions[0] ? {
             programIdIndex: allInstructions[0].programIdIndex,
             accountIndices: allInstructions[0].accountIndices,
-            dataType: typeof allInstructions[0].data,
-            dataLen: allInstructions[0].data?.length,
         } : 'none',
     });
 
